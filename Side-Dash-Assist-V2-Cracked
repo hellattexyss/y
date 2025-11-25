@@ -1,6 +1,6 @@
 -- Side Dash Assist v1.0 by CPS Network
--- Modern Black & Red Gradient GUI + Full Circular Dash System
 -- SNIPPET 1: Core Services, Variables, Target System, Animations, Dash Mechanics
+-- Fixed all errors + Red gradient circular dash button
 
 local plrs = game:GetService("Players")
 local run = game:GetService("RunService")
@@ -50,7 +50,6 @@ local targetDist = 15
 local straightSpeed = 120
 local velPredict = 0.5
 local aspect = 390 / 480
-local btnImage = "rbxassetid://5852470908"
 local dashSfxId = "rbxassetid://72014632956520"
 local isDashing = false
 local sideAnim = nil
@@ -288,19 +287,14 @@ end
 local m1Enabled = false
 local dashEnabled = false
 
--- END OF SNIPPET 1 - Core mechanics, target finding, animations, straight dash
+-- END OF SNIPPET 1 - Core mechanics, target finding, animations, straight dash complete
 -- Side Dash Assist v1.0 by CPS Network - SNIPPET 2
--- Modern Black & Red GUI + Settings + Adjust Sliders + Circular Dash + Dash Button
+-- Modern Black & Red GUI + Red Gradient Circular Dash Button + Circular Dash Fixed
 
 local settingsGui = Instance.new("ScreenGui")
 settingsGui.Name = "SettingsGui"
 settingsGui.ResetOnSpawn = false
 settingsGui.Parent = lp:WaitForChild("PlayerGui")
-
-local clickSfx = Instance.new("Sound")
-clickSfx.SoundId = "rbxassetid://6042053626"
-clickSfx.Volume = 0.7
-clickSfx.Parent = settingsGui
 
 local function makeDraggable(gui)
 	local dragging, dragInput, startPos, startMouse
@@ -417,7 +411,6 @@ buttonContainer.Parent = mainFrame
 
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(1, 0, 1, 0)
-toggleButton.Position = UDim2.new(0, 0, 0, 0)
 toggleButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 toggleButton.BorderSizePixel = 0
 toggleButton.Text = "Enable: ON"
@@ -431,13 +424,27 @@ local buttonCorner = Instance.new("UICorner")
 buttonCorner.CornerRadius = UDim.new(0, 12)
 buttonCorner.Parent = toggleButton
 
+-- FIXED: Create a Frame for gradient background instead of applying to TextButton
+local buttonGradientFrame = Instance.new("Frame")
+buttonGradientFrame.Size = UDim2.new(1, 0, 1, 0)
+buttonGradientFrame.BackgroundColor3 = Color3.fromRGB(54, 54, 54)
+buttonGradientFrame.BorderSizePixel = 0
+buttonGradientFrame.ZIndex = toggleButton.ZIndex - 1
+buttonGradientFrame.Parent = toggleButton
+
+local buttonGradientCorner = Instance.new("UICorner")
+buttonGradientCorner.CornerRadius = UDim.new(0, 12)
+buttonGradientCorner.Parent = buttonGradientFrame
+
 local buttonGradient = Instance.new("UIGradient")
 buttonGradient.Color = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(54, 54, 54)),
 	ColorSequenceKeypoint.new(1, Color3.fromRGB(27, 27, 27))
 })
 buttonGradient.Rotation = 90
-buttonGradient.Parent = toggleButton
+buttonGradient.Parent = buttonGradientFrame
+
+toggleButton.BackgroundTransparency = 1
 
 local buttonBorder = Instance.new("UIStroke")
 buttonBorder.Color = Color3.fromRGB(100, 100, 100)
@@ -479,15 +486,55 @@ toggleButton.MouseButton1Click:Connect(function()
 end)
 
 toggleButton.MouseEnter:Connect(function()
-	tween:Create(toggleButton, TweenInfo.new(0.16), {BackgroundTransparency = 0.04}):Play()
+	tween:Create(buttonGradientFrame, TweenInfo.new(0.16), {BackgroundTransparency = 0.04}):Play()
 end)
 
 toggleButton.MouseLeave:Connect(function()
-	tween:Create(toggleButton, TweenInfo.new(0.16), {BackgroundTransparency = 0}):Play()
+	tween:Create(buttonGradientFrame, TweenInfo.new(0.16), {BackgroundTransparency = 0}):Play()
 end)
 
 makeDraggable(mainFrame)
 updateButtonAppearance()
+
+-- RED GRADIENT CIRCULAR DASH BUTTON (NO SOUND ON CLICK)
+local dashButtonGui = Instance.new("ScreenGui")
+dashButtonGui.Name = "DashButtonGui"
+dashButtonGui.ResetOnSpawn = false
+dashButtonGui.Parent = lp:WaitForChild("PlayerGui")
+
+local dashBtn = Instance.new("ImageButton")
+dashBtn.Name = "DashButton"
+dashBtn.Size = UDim2.new(0, 110, 0, 110)
+dashBtn.Position = UDim2.new(0.85, -55, 0.75, -55)
+dashBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+dashBtn.BorderSizePixel = 0
+dashBtn.Image = ""
+dashBtn.Parent = dashButtonGui
+
+local dashBtnCorner = Instance.new("UICorner")
+dashBtnCorner.CornerRadius = UDim.new(1, 0)
+dashBtnCorner.Parent = dashBtn
+
+local dashBtnGradient = Instance.new("UIGradient")
+dashBtnGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 30, 30)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200, 0, 0)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 0, 0))
+})
+dashBtnGradient.Rotation = 45
+dashBtnGradient.Parent = dashBtn
+
+local dashBtnStroke = Instance.new("UIStroke")
+dashBtnStroke.Color = Color3.fromRGB(255, 0, 0)
+dashBtnStroke.Thickness = 3
+dashBtnStroke.Transparency = 0.3
+dashBtnStroke.Parent = dashBtn
+
+local dashScale = Instance.new("UIScale")
+dashScale.Scale = 1
+dashScale.Parent = dashBtn
+
+makeDraggable(dashBtn)
 
 -- CIRCULAR DASH FUNCTION
 function circularDash(target)
@@ -589,6 +636,29 @@ function circularDash(target)
 	end)
 end
 
+-- DASH BUTTON CLICK (NO SOUND)
+local dashBtnDragging = false
+dashBtn.InputBegan:Connect(function(inp)
+	if inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseButton1 then
+		dashBtnDragging = false
+		tween:Create(dashScale, TweenInfo.new(0.08), {Scale = 0.92}):Play()
+	end
+end)
+
+dashBtn.InputEnded:Connect(function(inp)
+	if inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseButton1 then
+		tween:Create(dashScale, TweenInfo.new(0.08), {Scale = 1}):Play()
+		if not dashBtnDragging and tick() - lastDash >= 1.5 then
+			if not isDead() then
+				local target = getCurrentTarget()
+				if target then
+					circularDash(target)
+				end
+			end
+		end
+	end
+end)
+
 -- KEYBINDS FOR DASH (Q/E)
 input.InputBegan:Connect(function(inp, gp)
 	if gp or isDashing then return end
@@ -604,9 +674,10 @@ input.InputBegan:Connect(function(inp, gp)
 	end
 end)
 
-print("Side Dash Assist v1.0 loaded!")
-print("Modern Black & Red Curved Border GUI Active")
-print("Press Q or E to dash when enabled")
-print("Defaults: dashDegree=180°, speed=0.50 applied via slider system")
+print("✅ Side Dash Assist v1.0 Loaded!")
+print("🎨 Modern Black & Red Curved Border GUI Active")
+print("🔴 Red Gradient Circular Dash Button Added")
+print("⌨️ Press Q or E to dash | 🖱️ Click red button to dash")
+print("🔧 Toggle Enable/Disable with center button")
 
--- END OF SNIPPET 2 - Modern GUI, circular dash, keybinds, all functionalities integrated
+-- END OF SNIPPET 2 - All errors fixed, red gradient dash button added (no click sound)
