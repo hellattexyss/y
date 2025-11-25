@@ -396,7 +396,6 @@ closeBtn.Parent = mainFrame
 Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 10)
 closeBtn.MouseButton1Click:Connect(function() mainFrame.Visible = false end)
 
--- Enable/Disable Button (controls red circle dash button visibility)
 local buttonContainer = Instance.new("Frame")
 buttonContainer.Size = UDim2.new(0, 200, 0, 48)
 buttonContainer.Position = UDim2.new(0.5, -100, 0, 72)
@@ -552,7 +551,7 @@ keybindsList.TextYAlignment = Enum.TextYAlignment.Top
 keybindsList.Parent = keybindsFrame
 
 -- END SNIPPET 2
--- SNIPPET 3: Red Circle Dash Button + circularDash
+-- SNIPPET 3: Red Circle Dash Button + circularDash (Updated Defaults)
 
 dashButtonUI = Instance.new("ScreenGui")
 dashButtonUI.Name = "DashButtonUI"
@@ -635,7 +634,7 @@ local dashDur = 0.45
 local dashAngle = math.rad(480)
 
 function circularDash(target)
-	if isDashing or not scriptEnabled then return end
+	if isDashing or not scriptEnabled or isDead() then return end
 	if not target or not target:FindFirstChild("HumanoidRootPart") then return end
 	if not hrp then return end
 	isDashing = true
@@ -651,9 +650,9 @@ function circularDash(target)
 			pcall(function() h.AutoRotate = oldRot end)
 		end
 	end
-	local speedVal = 49
-	local angleVal = 130
-	local gapVal = 7
+	local speedVal = 60
+	local angleVal = 140
+	local gapVal = 5
 	local duration = getDashDuration(speedVal)
 	local angle = math.rad(angleVal)
 	local gap = math.clamp(gapVal, minGap, maxGap)
@@ -689,6 +688,13 @@ function circularDash(target)
 	end
 	if dashEnabled then sendComm({{Dash = Enum.KeyCode.W, Key = Enum.KeyCode.Q, Goal = "KeyPress"}}) end
 	conn = run.Heartbeat:Connect(function()
+		if isDead() then
+			conn:Disconnect()
+			pcall(function() if sideAnim and sideAnim.IsPlaying then sideAnim:Stop() end sideAnim = nil end)
+			cleanup()
+			isDashing = false
+			return
+		end
 		local t = math.clamp((tick() - start) / duration, 0, 1)
 		local e = easeCubic(t)
 		local curDist = math.clamp(startDist + (gap - startDist) * easeCubic(math.clamp(t * 1.5, 0, 1)), minGap, maxGap)
@@ -714,4 +720,3 @@ end
 updateButtonAppearance()
 
 -- END SNIPPET 3: All done! Paste in order.
-
