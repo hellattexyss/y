@@ -1,6 +1,5 @@
 -- ========================================
--- SIDE DASH ASSIST V2 - FULL FIXED
--- Core + Modern Black/Red GUI Integration
+-- SIDE DASH ASSIST CORE LOGIC
 -- ========================================
 
 local plrs = game:GetService("Players")
@@ -267,9 +266,7 @@ if type(attr) == "string" then
 		if savedSettings and savedSettings.Sliders then
 			for name, val in pairs(savedSettings.Sliders) do
 				local num = tonumber(val)
-				if num then
-					sliderVals[name] = math.clamp(math.floor(num), 0, 100)
-				end
+				if num then sliderVals[name] = math.clamp(math.floor(num), 0, 100) end
 			end
 		end
 	end)
@@ -284,12 +281,10 @@ local function sendComm(data)
 	end)
 end
 
-local m1Enabled = false
+local m1Enabled = true  -- M1 enabled by default
 local dashEnabled = false
 
 -- END SNIPPET 1
--- SNIPPET 2: Modern GUI + Original Settings
-
 local user = lp
 local settingsGuiModern = Instance.new("ScreenGui")
 settingsGuiModern.Name = "SideDashAssistGUI"
@@ -321,7 +316,6 @@ local function makeDraggableModern(gui)
 	end)
 end
 
--- Main panel
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 380, 0, 140)
@@ -441,7 +435,6 @@ local settingsBtnCorner = Instance.new("UICorner")
 settingsBtnCorner.CornerRadius = UDim.new(1, 0)
 settingsBtnCorner.Parent = settingsBtnModern
 
--- Settings overlay with Degrees/Gap only (no Dash Speed slider)
 local settingsOverlay = Instance.new("Frame")
 settingsOverlay.Name = "SettingsOverlay"
 settingsOverlay.Size = UDim2.new(0, 360, 0, 300)
@@ -451,15 +444,12 @@ settingsOverlay.Visible = false
 settingsOverlay.Parent = settingsGuiModern
 makeDraggableModern(settingsOverlay)
 
-local overlayCorner = Instance.new("UICorner")
-overlayCorner.CornerRadius = UDim.new(0, 19)
-overlayCorner.Parent = settingsOverlay
-
+Instance.new("UICorner", settingsOverlay).CornerRadius = UDim.new(0, 19)
 local overlayGradient = Instance.new("UIGradient")
-overlayGradient.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 5, 5)),
-	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 15, 15)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+overlayGradient.Color = ColorSequence.new({ 
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 5, 5)), 
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 15, 15)), 
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0)) 
 })
 overlayGradient.Rotation = 90
 overlayGradient.Parent = settingsOverlay
@@ -486,9 +476,7 @@ settingsCloseBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 settingsCloseBtn.TextSize = 19
 settingsCloseBtn.BorderSizePixel = 0
 settingsCloseBtn.Parent = settingsOverlay
-local settingsCloseCorner = Instance.new("UICorner")
-settingsCloseCorner.CornerRadius = UDim.new(0, 10)
-settingsCloseCorner.Parent = settingsCloseBtn
+Instance.new("UICorner", settingsCloseBtn).CornerRadius = UDim.new(0, 10)
 settingsCloseBtn.MouseButton1Click:Connect(function()
 	settingsOverlay.Visible = false
 end)
@@ -497,107 +485,23 @@ settingsBtnModern.MouseButton1Click:Connect(function()
 	settingsOverlay.Visible = true
 end)
 
--- Only Dash Degrees and Dash Gap sliders (no Dash Speed)
-local sliderLabels = {"Dash Degrees", "Dash Gap"}
-local sliderDefaults = {32, 14}
+-- "SOON" Label to replace sliders
+local soonLabel = Instance.new("TextLabel")
+soonLabel.Size = UDim2.new(1, -34, 0, 170)
+soonLabel.Position = UDim2.new(0, 17, 0, 80)
+soonLabel.BackgroundTransparency = 1
+soonLabel.Text = "Slider controls coming soon!\n\nDefaults:\nDash Degrees = 120°\nDash Gap = 14\nDash Speed is fixed."
+soonLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+soonLabel.TextSize = 18
+soonLabel.Font = Enum.Font.GothamBold
+soonLabel.TextWrapped = true
+soonLabel.TextYAlignment = Enum.TextYAlignment.Top
+soonLabel.Parent = settingsOverlay
 
-local function createSlider(labelText, default, y)
-	local group = Instance.new("Frame")
-	group.Size = UDim2.new(1, -34, 0, 56)
-	group.Position = UDim2.new(0, 17, 0, y)
-	group.BackgroundTransparency = 1
-	group.Parent = settingsOverlay
-
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(0.44, 0, 0, 23)
-	label.Position = UDim2.new(0, 0, 0, 6)
-	label.BackgroundTransparency = 1
-	label.Text = labelText
-	label.Font = Enum.Font.Gotham
-	label.TextColor3 = Color3.fromRGB(190, 70, 70)
-	label.TextSize = 17
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.Parent = group
-
-	local bar = Instance.new("Frame")
-	bar.Size = UDim2.new(0.48, 0, 0, 8)
-	bar.Position = UDim2.new(0.46, 4, 0, 18)
-	bar.BackgroundColor3 = Color3.fromRGB(46, 46, 46)
-	bar.Parent = group
-	Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
-
-	local handle = Instance.new("TextButton")
-	handle.Size = UDim2.new(0, 18, 0, 18)
-	handle.Position = UDim2.new(default / 100, -9, 0.5, -9)
-	handle.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
-	handle.Text = ""
-	handle.ZIndex = 2
-	handle.AutoButtonColor = false
-	handle.Parent = group
-	Instance.new("UICorner", handle).CornerRadius = UDim.new(1, 0)
-
-	local valLabel = Instance.new("TextLabel")
-	valLabel.Size = UDim2.new(0.18, 0, 0, 19)
-	valLabel.Position = UDim2.new(0.94, -5, 0, 8)
-	valLabel.BackgroundTransparency = 1
-	valLabel.Text = tostring(default)
-	valLabel.Font = Enum.Font.GothamBold
-	valLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	valLabel.TextSize = 16
-	valLabel.Parent = group
-
-	local dragging = false
-	local value = default
-	
-	local function setValue(x)
-		local barWidth = bar.AbsoluteSize.X
-		local barX = bar.AbsolutePosition.X
-		if barWidth == 0 then return end
-		local t = math.clamp((x - barX) / barWidth, 0, 1)
-		handle.Position = UDim2.new(t, -9, 0.5, -9)
-		value = math.floor(t * 100)
-		valLabel.Text = tostring(value)
-		sliderVals[labelText] = value
-	end
-	
-	handle.InputBegan:Connect(function(inp)
-		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then 
-			dragging = true 
-			setValue(inp.Position.X) 
-		end
-	end)
-	handle.InputEnded:Connect(function(inp)
-		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then 
-			dragging = false 
-		end
-	end)
-	bar.InputBegan:Connect(function(inp)
-		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then 
-			dragging = true 
-			setValue(inp.Position.X) 
-		end
-	end)
-	bar.InputEnded:Connect(function(inp)
-		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then 
-			dragging = false 
-		end
-	end)
-	input.InputChanged:Connect(function(inp)
-		if dragging and inp.Position then 
-			setValue(inp.Position.X) 
-		end
-	end)
-	
-	sliderVals[labelText] = value
-end
-
-createSlider(sliderLabels[1], sliderDefaults[1], 50)
-createSlider(sliderLabels[2], sliderDefaults[2], 110)
-
--- Keybinds Info
+-- Keybinds info panel
 local keybindsFrame = Instance.new("Frame")
-keybindsFrame.Size = UDim2.new(1, -34, 0, 110)
-keybindsFrame.Position = UDim2.new(0, 17, 0, 180)
+keybindsFrame.Size = UDim2.new(1, -34, 0, 80)
+keybindsFrame.Position = UDim2.new(0, 17, 0, 220)
 keybindsFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 keybindsFrame.BorderSizePixel = 0
 keybindsFrame.Parent = settingsOverlay
@@ -618,16 +522,13 @@ local keybindsList = Instance.new("TextLabel")
 keybindsList.Size = UDim2.new(1, -16, 1, -30)
 keybindsList.Position = UDim2.new(0, 8, 0, 27)
 keybindsList.BackgroundTransparency = 1
-keybindsList.Text = "X Key / G Key - Dash\nRed Circle Button - Dash\nDPad Up - Gamepad Dash"
+keybindsList.Text = "E Key - Dash\nRed Circle Button - Dash\nDPad Up - Gamepad Dash"
 keybindsList.TextColor3 = Color3.fromRGB(200, 200, 200)
 keybindsList.TextSize = 12
 keybindsList.Font = Enum.Font.Gotham
 keybindsList.TextXAlignment = Enum.TextXAlignment.Left
 keybindsList.TextYAlignment = Enum.TextYAlignment.Top
 keybindsList.Parent = keybindsFrame
-
--- END SNIPPET 2
--- SNIPPET 3: Red Circle Dash Button + circularDash Function
 
 local dashButtonUI = Instance.new("ScreenGui")
 dashButtonUI.Name = "DashButtonUI"
@@ -655,19 +556,18 @@ local dashCorner = Instance.new("UICorner")
 dashCorner.CornerRadius = UDim.new(1, 0)
 dashCorner.Parent = dashButton
 
--- Single-touch drag with smooth delayed dragging (no teleporting on 2 touches)
 local dragging = false
 local dragStart = nil
 local startPos = nil
 local dragInput = nil
 local activeTouches = {}
 
+-- Allow two simultaneous touches but only drag with one
 dashButton.InputBegan:Connect(function(inp)
 	if inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseButton1 then
 		activeTouches[inp] = true
 		local touchCount = 0
 		for _ in pairs(activeTouches) do touchCount = touchCount + 1 end
-		
 		if touchCount == 1 and not dragging then
 			dragging = true
 			dragStart = inp.Position
@@ -703,11 +603,11 @@ input.InputEnded:Connect(function(inp)
 	end
 end)
 
--- Keyboard & Gamepad Input (exact original)
+-- Keyboard & Gamepad Input with key 'E'
 input.InputBegan:Connect(function(inp, gp)
 	if gp or isDashing then return end
 	if isDead() then return end
-	local key = input.GamepadEnabled and Enum.KeyCode.DPadUp or Enum.KeyCode.G
+	local key = input.GamepadEnabled and Enum.KeyCode.DPadUp or Enum.KeyCode.E
 	local shouldDash = false
 	if inp.UserInputType == Enum.UserInputType.Keyboard and inp.KeyCode and (inp.KeyCode == Enum.KeyCode.X or inp.KeyCode == key) then
 		shouldDash = true
@@ -726,7 +626,6 @@ end)
 local dashDur = 0.45
 local dashAngle = math.rad(480)
 
--- EXACT ORIGINAL circularDash function
 function circularDash(target)
 	if isDashing then return end
 	if not target or not target:FindFirstChild("HumanoidRootPart") then return end
@@ -744,21 +643,12 @@ function circularDash(target)
 			pcall(function() h.AutoRotate = oldRot end)
 		end
 	end
-	local speedVal = sliderVals["Dash speed"]
-	if not speedVal then
-		speedVal = savedSettings and savedSettings.Sliders and tonumber(savedSettings.Sliders["Dash speed"]) or 49
-	end
-	local angleVal = sliderVals["Dash Degrees"]
-	if not angleVal then
-		angleVal = savedSettings and savedSettings.Sliders and tonumber(savedSettings.Sliders["Dash Degrees"]) or 32
-	end
-	local gapVal = sliderVals["Dash gap"]
-	if not gapVal then
-		gapVal = savedSettings and savedSettings.Sliders and tonumber(savedSettings.Sliders["Dash gap"]) or 14
-	end
+	local speedVal = 49 -- fixed default speed, Dash Speed slider removed
+	local angleVal = 120 -- default to 120°
+	local gapVal = 14 -- keep default gap 14
 	local duration = getDashDuration(speedVal)
-	local angle = math.rad(getDashAngle(angleVal))
-	local gap = math.clamp(getDashDist(gapVal), minGap, maxGap)
+	local angle = math.rad(angleVal)
+	local gap = math.clamp(gapVal, minGap, maxGap)
 	local targetHrp = target.HumanoidRootPart
 	if (targetHrp.Position - hrp.Position).Magnitude >= targetDist then
 		straightDash(targetHrp, straightSpeed)
@@ -834,4 +724,4 @@ function circularDash(target)
 	end)
 end
 
--- END SNIPPET 3: All done! Paste all 3 in order.
+-- END SNIPPET 3
