@@ -1,5 +1,5 @@
 -- ========================================
--- SIDE DASH ASSIST V2 - CORE
+-- SIDE DASH ASSIST V2 - CORE LOGIC
 -- ========================================
 
 local plrs = game:GetService("Players")
@@ -551,7 +551,7 @@ keybindsList.TextYAlignment = Enum.TextYAlignment.Top
 keybindsList.Parent = keybindsFrame
 
 -- END SNIPPET 2
--- SNIPPET 3: Red Circle Dash Button + circularDash (Updated Defaults)
+-- SNIPPET 3: Red Circle Dash Button + circularDash (M1 During Dash + gap=3)
 
 dashButtonUI = Instance.new("ScreenGui")
 dashButtonUI.Name = "DashButtonUI"
@@ -652,7 +652,7 @@ function circularDash(target)
 	end
 	local speedVal = 60
 	local angleVal = 140
-	local gapVal = 5
+	local gapVal = 3
 	local duration = getDashDuration(speedVal)
 	local angle = math.rad(angleVal)
 	local gap = math.clamp(gapVal, minGap, maxGap)
@@ -670,6 +670,7 @@ function circularDash(target)
 	local startAngle = math.atan2(targetPos.Z - myPos.Z, targetPos.X - myPos.X)
 	local startDist = math.clamp((Vector3.new(targetPos.X, 0, targetPos.Z) - Vector3.new(myPos.X, 0, myPos.Z)).Magnitude, minGap, maxGap)
 	local start = tick()
+	local didM1 = false
 	local conn
 	local aimed = false
 	local finished = false
@@ -682,11 +683,6 @@ function circularDash(target)
 		restore()
 		lastDash = tick()
 	end
-	if m1Enabled then
-		sendComm({{Mobile = true, Goal = "LeftClick"}})
-		task.delay(0.05, function() sendComm({{Goal = "LeftClickRelease", Mobile = true}}) end)
-	end
-	if dashEnabled then sendComm({{Dash = Enum.KeyCode.W, Key = Enum.KeyCode.Q, Goal = "KeyPress"}}) end
 	conn = run.Heartbeat:Connect(function()
 		if isDead() then
 			conn:Disconnect()
@@ -706,6 +702,12 @@ function circularDash(target)
 		local camAngle = math.atan2(hrp.CFrame.LookVector.Z, hrp.CFrame.LookVector.X)
 		local finalAngle = camAngle + angleDiff(lookAngle, camAngle) * 0.7
 		pcall(function() hrp.CFrame = CFrame.new(nextPos, nextPos + Vector3.new(math.cos(finalAngle), 0, math.sin(finalAngle))) end)
+		-- Fire M1 halfway through dash animation (adjust this for timing)
+		if not didM1 and t >= 0.08 and m1Enabled then
+			didM1 = true
+			sendComm({{Mobile = true, Goal = "LeftClick"}})
+			task.delay(0.05, function() sendComm({{Goal = "LeftClickRelease", Mobile = true}}) end)
+		end
 		if not aimed and aspect <= e then aimed = true cleanup() end
 		if t >= 1 then
 			conn:Disconnect()
@@ -715,8 +717,9 @@ function circularDash(target)
 			if canEnd then isDashing = false end
 		end
 	end)
+	if dashEnabled then sendComm({{Dash = Enum.KeyCode.W, Key = Enum.KeyCode.Q, Goal = "KeyPress"}}) end
 end
 
 updateButtonAppearance()
 
--- END SNIPPET 3: All done! Paste in order.
+-- END SNIPPET 3
