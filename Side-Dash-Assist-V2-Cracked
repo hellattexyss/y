@@ -1,6 +1,5 @@
 -- Side Dash Assist v1.0 by CPS Network
--- SNIPPET 1: Core System with exact OG logic preserved
--- Red button functional, M1 enabled by default, smooth dragging fixed
+-- SNIPPET 1: Core, Default Settings Applied, OG Skid
 
 local plrs = game:GetService("Players")
 local run = game:GetService("RunService")
@@ -122,7 +121,7 @@ local function playSideAnim(isLeft)
 	pcall(function() track.Looped = false end)
 	track:Play()
 	pcall(function() dashSfx:Stop() dashSfx:Play() end)
-	delay(TOTAL_TIME + 0.15, function()
+	delay((TOTAL_TIME), function()
 		pcall(function() if track and track.IsPlaying then track:Stop() end end)
 		pcall(function() anim:Destroy() end)
 	end)
@@ -161,16 +160,16 @@ local function findTarget(range)
 	return closest, closestDist
 end
 
-local function getDashDuration(val)
-	return 1.5 + (0.12 - 1.5) * math.clamp(val or 84, 0, 100) / 100
+local function getDashDuration()
+	return 0.50 -- default hardcoded
 end
 
-local function getDashAngle(val)
-	return 90 + 990 * math.clamp(val or 56, 0, 100) / 100
+local function getDashAngle()
+	return 180 -- default hardcoded
 end
 
-local function getDashDist(val)
-	return 1 + 11 * math.clamp(val or 50, 0, 100) / 100
+local function getDashDist()
+	return 10 -- default hardcoded (distance/gap)
 end
 
 local function getCurrentTarget()
@@ -239,11 +238,8 @@ local function straightDash(target, speed)
 	while not reached and target and target.Parent and hrp and hrp.Parent do task.wait() end
 end
 
-local sliderVals = {
-	["Dash speed"] = 49,
-	["Dash Degrees"] = 32,
-	["Dash gap"] = 14
-}
+local m1Enabled = true
+local dashEnabled = false
 
 local function sendComm(data)
 	pcall(function()
@@ -254,32 +250,27 @@ local function sendComm(data)
 	end)
 end
 
-local m1Enabled = true
-local dashEnabled = false
-
--- END OF SNIPPET 1 - Core system with OG logic preserved
+-- END SNIPPET 1: Core system + all default settings (0.50 speed, 180°, M1 enabled)
 -- Side Dash Assist v1.0 by CPS Network - SNIPPET 2
--- Modern GUI + Red Button Actually Works + Smooth Dragging Fixed + Enabled by Default
+-- Modern GUI + Red Circular Dash Button + Working Button + Curved Close Button
 
 local settingsGui = Instance.new("ScreenGui")
 settingsGui.Name = "SideDashAssistGUI"
 settingsGui.ResetOnSpawn = false
 settingsGui.Parent = lp:WaitForChild("PlayerGui")
 
--- FIXED SMOOTH DRAGGING (No teleporting, single touch detection)
+-- Smooth single-touch draggable, no teleporting
 local function makeDraggable(gui)
 	local dragging = false
 	local dragStart = nil
 	local startPos = nil
 	local currentInput = nil
-	
 	gui.InputBegan:Connect(function(inp)
 		if (inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseButton1) and not dragging then
 			dragging = true
 			dragStart = inp.Position
 			startPos = gui.Position
 			currentInput = inp
-			
 			inp.Changed:Connect(function()
 				if inp.UserInputState == Enum.UserInputState.End then
 					dragging = false
@@ -288,7 +279,6 @@ local function makeDraggable(gui)
 			end)
 		end
 	end)
-	
 	input.InputChanged:Connect(function(inp)
 		if dragging and currentInput == inp and (inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseMovement) then
 			local delta = inp.Position - dragStart
@@ -297,7 +287,7 @@ local function makeDraggable(gui)
 	end)
 end
 
--- MODERN BLACK & RED GUI
+-- GUI setup - main frame and border
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 380, 0, 140)
@@ -305,6 +295,7 @@ mainFrame.Position = UDim2.new(0.5, -190, 0.12, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = settingsGui
+makeDraggable(mainFrame)
 
 local mainCorner = Instance.new("UICorner")
 mainCorner.CornerRadius = UDim.new(0, 20)
@@ -312,14 +303,15 @@ mainCorner.Parent = mainFrame
 
 local mainBgGradient = Instance.new("UIGradient")
 mainBgGradient.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 5, 5)),
-	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 15, 15)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 5, 5)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 15, 15)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
 })
 mainBgGradient.Rotation = 90
 mainBgGradient.Parent = mainFrame
 
 local borderFrame = Instance.new("Frame")
+borderFrame.Name = "BorderFrame"
 borderFrame.Size = UDim2.new(1, 8, 1, 8)
 borderFrame.Position = UDim2.new(0, -4, 0, -4)
 borderFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
@@ -333,9 +325,9 @@ borderCorner.Parent = borderFrame
 
 local borderGradient = Instance.new("UIGradient")
 borderGradient.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
-	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 0, 0)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(26, 26, 26))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 0, 0)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(26, 26, 26))
 })
 borderGradient.Rotation = 45
 borderGradient.Parent = borderFrame
@@ -384,6 +376,24 @@ authorLabel.TextXAlignment = Enum.TextXAlignment.Left
 authorLabel.TextTransparency = 0.28
 authorLabel.Parent = headerFrame
 
+-- Curved cross close button (top-right, not circular)
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 35, 0, 35)
+closeBtn.Position = UDim2.new(1, -45, 0, 7)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Text = "❌"
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+closeBtn.TextSize = 18
+closeBtn.BorderSizePixel = 0
+closeBtn.Parent = mainFrame
+local closeBtnCorner = Instance.new("UICorner")
+closeBtnCorner.CornerRadius = UDim.new(0, 11)
+closeBtnCorner.Parent = closeBtn
+closeBtn.MouseButton1Click:Connect(function()
+	mainFrame.Visible = false
+end)
+
 local buttonContainer = Instance.new("Frame")
 buttonContainer.Size = UDim2.new(0, 200, 0, 48)
 buttonContainer.Position = UDim2.new(0.5, -100, 0, 72)
@@ -409,14 +419,14 @@ buttonBg.BorderSizePixel = 0
 buttonBg.ZIndex = 1
 buttonBg.Parent = buttonContainer
 
-local buttonCorner = Instance.new("UICorner")
-buttonCorner.CornerRadius = UDim.new(0, 12)
-buttonCorner.Parent = buttonBg
+local buttonCorner2 = Instance.new("UICorner")
+buttonCorner2.CornerRadius = UDim.new(0, 12)
+buttonCorner2.Parent = buttonBg
 
 local buttonGradient = Instance.new("UIGradient")
 buttonGradient.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 13, 19)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 0, 0))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 13, 19)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 0, 0))
 })
 buttonGradient.Rotation = 90
 buttonGradient.Parent = buttonBg
@@ -429,7 +439,7 @@ buttonBorder.Parent = buttonBg
 
 local enabled = true
 
--- RED CIRCULAR BUTTON (Visible by default, actually works with OG circularDash)
+-- Create the red circular dash button (default visible and functional)
 local dashButtonGui = Instance.new("ScreenGui")
 dashButtonGui.Name = "DashButtonGui"
 dashButtonGui.ResetOnSpawn = false
@@ -452,9 +462,9 @@ dashBtnBg.BorderSizePixel = 0
 dashBtnBg.ZIndex = 0
 dashBtnBg.Parent = dashBtn
 
-local dashBtnCorner = Instance.new("UICorner")
-dashBtnCorner.CornerRadius = UDim.new(1, 0)
-dashBtnCorner.Parent = dashBtn
+local dashBtnCorner1 = Instance.new("UICorner")
+dashBtnCorner1.CornerRadius = UDim.new(1, 0)
+dashBtnCorner1.Parent = dashBtn
 
 local dashBtnCorner2 = Instance.new("UICorner")
 dashBtnCorner2.CornerRadius = UDim.new(1, 0)
@@ -478,7 +488,6 @@ dashBtnStroke.Parent = dashBtn
 local dashScale = Instance.new("UIScale")
 dashScale.Scale = 1
 dashScale.Parent = dashBtn
-
 makeDraggable(dashBtn)
 
 local function updateButtonAppearance()
@@ -497,11 +506,9 @@ local function updateButtonAppearance()
 		buttonBorder.Color = Color3.fromRGB(110, 110, 110)
 		dashBtn.Visible = false
 		tween:Create(buttonGradient, TweenInfo.new(0.3), {
-			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromRGB(54, 54, 54)),
-				ColorSequenceKeypoint.new(1, Color3.fromRGB(27, 27, 27))
-			})
-		}):Play()
+			Color = ColorSequenceKeypoint.new(0, Color3.fromRGB(54, 54, 54)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(27, 27, 27))
+		})
 	end
 end
 
@@ -514,11 +521,11 @@ toggleButton.MouseButton1Click:Connect(function()
 	tween:Create(buttonContainer, TweenInfo.new(0.10), {Size = originalSize}):Play()
 end)
 
-makeDraggable(mainFrame)
 updateButtonAppearance()
 
--- CIRCULAR DASH FUNCTION (EXACT OG LOGIC)
+-- CIRCULAR DASH FUNCTION, OG LOGIC, DEFAULT SETTINGS
 function circularDash(target)
+	if not enabled then return end
 	if isDashing then return end
 	if not target or not target:FindFirstChild("HumanoidRootPart") then return end
 	if not hrp then return end
@@ -535,12 +542,9 @@ function circularDash(target)
 			pcall(function() h.AutoRotate = oldRot end)
 		end
 	end
-	local speedVal = sliderVals["Dash speed"]
-	local angleVal = sliderVals["Dash Degrees"]
-	local gapVal = sliderVals["Dash gap"]
-	local duration = getDashDuration(speedVal)
-	local angle = math.rad(getDashAngle(angleVal))
-	local gap = math.clamp(getDashDist(gapVal), minGap, maxGap)
+	local duration = getDashDuration()
+	local angle = math.rad(getDashAngle())
+	local gap = getDashDist()
 	local targetHrp = target.HumanoidRootPart
 	if (targetHrp.Position - hrp.Position).Magnitude >= targetDist then
 		straightDash(targetHrp, straightSpeed)
@@ -616,11 +620,10 @@ function circularDash(target)
 	end)
 end
 
--- RED BUTTON CLICK (Fixed single touch, actually triggers dash)
+-- Dash button: single touch detection, triggers OG dash
 local dashBtnDragging = false
 local dashBtnDragStart = nil
 local dashBtnCurrentInput = nil
-
 dashBtn.InputBegan:Connect(function(inp)
 	if (inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseButton1) and not dashBtnDragging then
 		dashBtnDragging = true
@@ -629,11 +632,10 @@ dashBtn.InputBegan:Connect(function(inp)
 		tween:Create(dashScale, TweenInfo.new(0.08), {Scale = 0.90}):Play()
 	end
 end)
-
 dashBtn.InputEnded:Connect(function(inp)
 	if inp == dashBtnCurrentInput then
 		tween:Create(dashScale, TweenInfo.new(0.08), {Scale = 1}):Play()
-		if dashBtnDragging and dashBtnDragStart and (inp.Position - dashBtnDragStart).Magnitude < 10 and tick() - lastDash >= 2 then
+		if dashBtnDragging and dashBtnDragStart and (inp.Position - dashBtnDragStart).Magnitude < 10 and tick() - lastDash >= 1 then
 			if not isDead() then
 				local target = getCurrentTarget()
 				if target then
@@ -646,7 +648,7 @@ dashBtn.InputEnded:Connect(function(inp)
 	end
 end)
 
--- KEYBINDS (OG X/G/DPadUp)
+-- Keybinds (OG X/G/DPadUp)
 input.InputBegan:Connect(function(inp, gp)
 	if gp or isDashing then return end
 	if isDead() then return end
@@ -658,7 +660,7 @@ input.InputBegan:Connect(function(inp, gp)
 	if (inp.UserInputType == Enum.UserInputType.Gamepad1 or inp.UserInputType == Enum.UserInputType.Gamepad2) and inp.KeyCode == Enum.KeyCode.DPadUp then
 		shouldDash = true
 	end
-	if shouldDash and tick() - lastDash >= 2 then
+	if shouldDash and tick() - lastDash >= 1 then
 		local target = getCurrentTarget()
 		if target then
 			circularDash(target)
@@ -666,12 +668,5 @@ input.InputBegan:Connect(function(inp, gp)
 	end
 end)
 
-print("✅ Side Dash Assist v1.0 Loaded!")
-print("🎨 Modern GUI - Enabled by Default (Red)")
-print("🔴 Red Circular Dash Button - Visible & Functional")
-print("⌨️ Press X or G to dash | 🖱️ Click red button to dash")
-print("🔧 Toggle: Disable/Enable controls red button visibility")
-print("⚙️ M1 ON by default, Settings: Speed=49, Degrees=32, Gap=14")
-print("📱 Fixed smooth dragging - No teleporting, single touch only")
-
--- END OF SNIPPET 2 - Everything works, red button functional, enabled by default
+print("✅ Side Dash Assist v1.0 Loaded! Dash button and toggle working. Default settings.")
+-- END SNIPPET 2: GUI + working dash button + curved close button, no settings menu
