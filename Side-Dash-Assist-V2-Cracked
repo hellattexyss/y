@@ -652,8 +652,8 @@ function circularDash(target)
 		end
 	end
 	local speedVal = 49
-	local angleVal = 120
-	local gapVal = 3
+	local angleVal = 130
+	local gapVal = 7
 	local duration = getDashDuration(speedVal)
 	local angle = math.rad(angleVal)
 	local gap = math.clamp(gapVal, minGap, maxGap)
@@ -714,3 +714,4 @@ end
 updateButtonAppearance()
 
 -- END SNIPPET 3: All done! Paste in order.
+
