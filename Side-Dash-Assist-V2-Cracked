@@ -1,4 +1,4 @@
--- SNIPPET 1 - CORE
+-- ============ SNIPPET 1: CORE LOGIC ============
 
 local plrs = game:GetService("Players")
 local run = game:GetService("RunService")
@@ -8,6 +8,9 @@ local http = game:GetService("HttpService")
 local ws = workspace
 local lp = plrs.LocalPlayer
 local cam = ws.CurrentCamera
+
+-- INITIALIZE scriptEnabled HERE (before anything uses it!)
+local scriptEnabled = true
 
 math.randomseed(tick() % 65536)
 local char = lp.Character or lp.CharacterAdded:Wait()
@@ -72,8 +75,8 @@ lp.CharacterAdded:Connect(function() task.wait(0.05) hookAutoRotate() end)
 
 local function angleDiff(a, b)
 	local d = a - b
-	while d > math.pi do d -= 2 * math.pi end
-	while d < -math.pi do d += 2 * math.pi end
+	while d > math.pi do d = d - 2 * math.pi end
+	while d < -math.pi do d = d + 2 * math.pi end
 	return d
 end
 
@@ -219,10 +222,10 @@ local function sendComm(data)
 end
 
 local m1Enabled, dashEnabled = false, false
-local dashButtonFrame = nil
+local dashButtonGui = nil
 
 -- END SNIPPET 1
--- SNIPPET 2 - MAIN GUI
+-- ============ SNIPPET 2: GUI ============
 
 local settingsGuiModern = Instance.new("ScreenGui")
 settingsGuiModern.Name = "SideDashAssistGUI"
@@ -340,21 +343,13 @@ buttonBg.BorderSizePixel = 0
 buttonBg.Parent = buttonContainer
 Instance.new("UICorner", buttonBg).CornerRadius = UDim.new(0, 12)
 
-local buttonGradient = Instance.new("UIGradient")
-buttonGradient.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 13, 19)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 0, 0))
-})
-buttonGradient.Rotation = 90
-buttonGradient.Parent = buttonBg
-
 local buttonBorder = Instance.new("UIStroke")
 buttonBorder.Color = Color3.fromRGB(255, 0, 0)
 buttonBorder.Thickness = 2
 buttonBorder.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 buttonBorder.Parent = buttonBg
 
--- Open GUI button (when minimized)
+-- OPEN GUI BUTTON (minimized)
 local openGuiBtn = Instance.new("TextButton")
 openGuiBtn.Size = UDim2.new(0, 40, 0, 40)
 openGuiBtn.Position = UDim2.new(0, 10, 0.5, -20)
@@ -369,9 +364,20 @@ openGuiBtn.Visible = false
 Instance.new("UICorner", openGuiBtn).CornerRadius = UDim.new(0, 8)
 makeDraggable(openGuiBtn)
 
-openGuiBtn.MouseButton1Click:Connect(function()
-	mainFrame.Visible = true
-	openGuiBtn.Visible = false
+-- BUTTON CLICKS
+toggleButton.MouseButton1Click:Connect(function()
+	scriptEnabled = not scriptEnabled
+	if scriptEnabled then
+		toggleButton.Text = "Disable: OFF"
+		buttonBorder.Color = Color3.fromRGB(255, 0, 0)
+		buttonBg.BackgroundColor3 = Color3.fromRGB(180, 13, 19)
+		if dashButtonGui then dashButtonGui.Enabled = true end
+	else
+		toggleButton.Text = "Enable: ON"
+		buttonBorder.Color = Color3.fromRGB(110, 110, 110)
+		buttonBg.BackgroundColor3 = Color3.fromRGB(54, 54, 54)
+		if dashButtonGui then dashButtonGui.Enabled = false end
+	end
 end)
 
 minimizeBtn.MouseButton1Click:Connect(function()
@@ -383,52 +389,29 @@ closeBtn.MouseButton1Click:Connect(function()
 	mainFrame.Visible = false
 end)
 
--- dashButtonUI updated in Snippet 3, this just toggles its Enabled
-local function updateButtonAppearance()
-	if scriptEnabled then
-		toggleButton.Text = "Disable: OFF"
-		buttonBorder.Color = Color3.fromRGB(255, 0, 0)
-		tween:Create(buttonGradient, TweenInfo.new(0.3), {
-			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 13, 19)),
-				ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 0, 0))
-			})
-		}):Play()
-		if dashButtonFrame and dashButtonFrame.Parent then dashButtonFrame.Parent.Enabled = true end
-	else
-		toggleButton.Text = "Enable: ON"
-		buttonBorder.Color = Color3.fromRGB(110, 110, 110)
-		tween:Create(buttonGradient, TweenInfo.new(0.3), {
-			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromRGB(54, 54, 54)),
-				ColorSequenceKeypoint.new(1, Color3.fromRGB(27, 27, 27))
-			})
-		}):Play()
-		if dashButtonFrame and dashButtonFrame.Parent then dashButtonFrame.Parent.Enabled = false end
-	end
-end
-
-toggleButton.MouseButton1Click:Connect(function()
-	scriptEnabled = not scriptEnabled
-	updateButtonAppearance()
+openGuiBtn.MouseButton1Click:Connect(function()
+	mainFrame.Visible = true
+	openGuiBtn.Visible = false
 end)
 
 -- END SNIPPET 2
--- SNIPPET 3 - RED CIRCLE + DASH
+-- ============ SNIPPET 3: RED CIRCLE + DASH ============
 
-local dashGui = Instance.new("ScreenGui")
-dashGui.Name = "DashButtonGUI"
-dashGui.ResetOnSpawn = false
-dashGui.Parent = lp:WaitForChild("PlayerGui")
+dashButtonGui = Instance.new("ScreenGui")
+dashButtonGui.Name = "DashButtonGUI"
+dashButtonGui.ResetOnSpawn = false
+dashButtonGui.Parent = lp:WaitForChild("PlayerGui")
+dashButtonGui.Enabled = true
 
-dashButtonFrame = Instance.new("Frame")
+local dashButtonFrame = Instance.new("Frame")
 dashButtonFrame.Name = "DashButton"
 dashButtonFrame.Size = UDim2.new(0, 130, 0, 150)
-dashButtonFrame.Position = UDim2.new(0, 20, 0, 20) -- top-left
+dashButtonFrame.Position = UDim2.new(0, 20, 0, 20)
 dashButtonFrame.BackgroundTransparency = 1
 dashButtonFrame.BorderSizePixel = 0
-dashButtonFrame.Parent = dashGui
+dashButtonFrame.Parent = dashButtonGui
 
+-- ICON LABEL (above circle)
 local iconLabel = Instance.new("ImageLabel")
 iconLabel.Name = "Icon"
 iconLabel.Size = UDim2.new(0, 60, 0, 60)
@@ -443,6 +426,7 @@ iconStroke.Thickness = 2
 iconStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 iconStroke.Parent = iconLabel
 
+-- RED CIRCLE
 local redCircle = Instance.new("Frame")
 redCircle.Name = "RedCircle"
 redCircle.Size = UDim2.new(0, 120, 0, 120)
@@ -469,6 +453,7 @@ grad.Color = ColorSequence.new({
 grad.Rotation = 90
 grad.Parent = redCircle
 
+-- TOUCH/DRAG
 local dragging = false
 local dragStart, startPos, dragInput
 local activeTouches = {}
@@ -477,7 +462,7 @@ redCircle.InputBegan:Connect(function(inp)
 	if inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseButton1 then
 		activeTouches[inp] = true
 		local count = 0
-		for _ in pairs(activeTouches) do count += 1 end
+		for _ in pairs(activeTouches) do count = count + 1 end
 		if count == 1 and not dragging then
 			dragging = true
 			dragStart = inp.Position
@@ -511,6 +496,7 @@ input.InputEnded:Connect(function(inp)
 	end
 end)
 
+-- KEYBOARD INPUT
 input.InputBegan:Connect(function(inp, gp)
 	if gp or isDashing or not scriptEnabled or isDead() then return end
 	local key = input.GamepadEnabled and Enum.KeyCode.DPadUp or Enum.KeyCode.G
@@ -531,6 +517,7 @@ input.InputBegan:Connect(function(inp, gp)
 	end
 end)
 
+-- CIRCULAR DASH FUNCTION
 function circularDash(target)
 	if isDashing or not target or not target:FindFirstChild("HumanoidRootPart") or not hrp then return end
 	isDashing = true
@@ -548,7 +535,6 @@ function circularDash(target)
 		end
 	end
 
-	-- speed slider default ~ 100 => duration short (~0.12). To make 1.0s, set slider so getDashDuration(...) ~= 1
 	local speedVal = sliderVals["Dash speed"] or 100
 	local angleVal = sliderVals["Dash Degrees"] or 56
 	local gapVal = sliderVals["Dash gap"] or 50
@@ -633,7 +619,5 @@ function circularDash(target)
 		end
 	end)
 end
-
-updateButtonAppearance()
 
 -- END SNIPPET 3
