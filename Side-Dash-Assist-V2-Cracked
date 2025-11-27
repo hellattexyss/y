@@ -289,13 +289,12 @@ local scriptEnabled = true
 local dashButtonUI = nil
 
 -- END SNIPPET 1
--- SNIPPET 2: GUI with Minimize + Open Button, Z-Index Controls
+-- SNIPPET 2: GUI with Minimize + Open Button
 
 local settingsGuiModern = Instance.new("ScreenGui")
 settingsGuiModern.Name = "SideDashAssistGUI"
 settingsGuiModern.ResetOnSpawn = false
 settingsGuiModern.Parent = lp:WaitForChild("PlayerGui")
-settingsGuiModern.ZIndex = 100
 
 local function makeDraggableModern(gui)
 	local dragging = false
@@ -329,7 +328,6 @@ mainFrame.Position = UDim2.new(0.5, -190, 0.12, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = settingsGuiModern
-mainFrame.ZIndex = 101
 makeDraggableModern(mainFrame)
 
 Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 20)
@@ -349,7 +347,6 @@ titleLabel.Font = Enum.Font.GothamBold
 titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 titleLabel.TextStrokeTransparency = 0.7
 titleLabel.Parent = mainFrame
-titleLabel.ZIndex = 102
 
 local authorLabel = Instance.new("TextLabel")
 authorLabel.Size = UDim2.new(1, -40, 0, 17)
@@ -362,7 +359,6 @@ authorLabel.Font = Enum.Font.GothamMedium
 authorLabel.TextXAlignment = Enum.TextXAlignment.Left
 authorLabel.TextTransparency = 0.28
 authorLabel.Parent = mainFrame
-authorLabel.ZIndex = 102
 
 local minimizeBtn = Instance.new("TextButton")
 minimizeBtn.Size = UDim2.new(0, 35, 0, 35)
@@ -374,7 +370,6 @@ minimizeBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 minimizeBtn.TextSize = 19
 minimizeBtn.BorderSizePixel = 0
 minimizeBtn.Parent = mainFrame
-minimizeBtn.ZIndex = 103
 Instance.new("UICorner", minimizeBtn).CornerRadius = UDim.new(0, 10)
 
 local closeBtn = Instance.new("TextButton")
@@ -387,7 +382,6 @@ closeBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 closeBtn.TextSize = 19
 closeBtn.BorderSizePixel = 0
 closeBtn.Parent = mainFrame
-closeBtn.ZIndex = 103
 Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 10)
 
 local buttonContainer = Instance.new("Frame")
@@ -395,7 +389,6 @@ buttonContainer.Size = UDim2.new(0, 200, 0, 48)
 buttonContainer.Position = UDim2.new(0.5, -100, 0, 72)
 buttonContainer.BackgroundTransparency = 1
 buttonContainer.Parent = mainFrame
-buttonContainer.ZIndex = 102
 
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(1, 0, 1, 0)
@@ -406,14 +399,12 @@ toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleButton.TextSize = 20
 toggleButton.Font = Enum.Font.GothamBold
 toggleButton.AutoButtonColor = false
-toggleButton.ZIndex = 103
 toggleButton.Parent = buttonContainer
 
 local buttonBg = Instance.new("Frame")
 buttonBg.Size = UDim2.new(1, 0, 1, 0)
 buttonBg.BackgroundColor3 = Color3.fromRGB(180, 13, 19)
 buttonBg.BorderSizePixel = 0
-buttonBg.ZIndex = 102
 buttonBg.Parent = buttonContainer
 Instance.new("UICorner", buttonBg).CornerRadius = UDim.new(0, 12)
 
@@ -447,7 +438,6 @@ toggleButton.MouseButton1Click:Connect(function()
 	updateButtonAppearance()
 end)
 
--- OPEN GUI BUTTON (Left Side)
 local openGuiBtn = Instance.new("TextButton")
 openGuiBtn.Size = UDim2.new(0, 40, 0, 40)
 openGuiBtn.Position = UDim2.new(0, 10, 0.5, -20)
@@ -458,7 +448,6 @@ openGuiBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 openGuiBtn.TextSize = 24
 openGuiBtn.BorderSizePixel = 0
 openGuiBtn.Parent = settingsGuiModern
-openGuiBtn.ZIndex = 50
 openGuiBtn.Visible = false
 Instance.new("UICorner", openGuiBtn).CornerRadius = UDim.new(0, 8)
 makeDraggableModern(openGuiBtn)
@@ -476,14 +465,13 @@ end)
 closeBtn.MouseButton1Click:Connect(function() mainFrame.Visible = false end)
 
 -- END SNIPPET 2
--- SNIPPET 3: Red Circle with Icon Above + Sleek Effect (ORIGINAL DASH)
+-- SNIPPET 3: Red Circle with Icon + Sleek Effect
 
 dashButtonUI = Instance.new("ScreenGui")
 dashButtonUI.Name = "DashButtonUI"
 dashButtonUI.ResetOnSpawn = false
 dashButtonUI.Parent = lp:WaitForChild("PlayerGui")
 dashButtonUI.Enabled = true
-dashButtonUI.ZIndex = 10
 
 local dashButton = Instance.new("Frame")
 dashButton.Name = "DashButton"
@@ -492,9 +480,7 @@ dashButton.Position = UDim2.new(0, 20, 0, 20)
 dashButton.BackgroundTransparency = 1
 dashButton.BorderSizePixel = 0
 dashButton.Parent = dashButtonUI
-dashButton.ZIndex = 11
 
--- ICON at top
 local iconLabel = Instance.new("ImageLabel")
 iconLabel.Name = "Icon"
 iconLabel.Size = UDim2.new(0, 60, 0, 60)
@@ -502,16 +488,13 @@ iconLabel.Position = UDim2.new(0.5, -30, 0, 0)
 iconLabel.BackgroundTransparency = 1
 iconLabel.Image = "rbxassetid://110530089410634"
 iconLabel.Parent = dashButton
-iconLabel.ZIndex = 12
 
--- Icon Shadow
 local iconShadow = Instance.new("UIStroke")
 iconShadow.Color = Color3.fromRGB(0, 0, 0)
 iconShadow.Thickness = 2
 iconShadow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 iconShadow.Parent = iconLabel
 
--- RED CIRCLE (below icon)
 local redCircle = Instance.new("Frame")
 redCircle.Name = "RedCircle"
 redCircle.Size = UDim2.new(0, 120, 0, 120)
@@ -519,16 +502,13 @@ redCircle.Position = UDim2.new(0.5, -60, 0, 60)
 redCircle.BackgroundColor3 = Color3.fromRGB(220, 0, 0)
 redCircle.BorderSizePixel = 0
 redCircle.Parent = dashButton
-redCircle.ZIndex = 11
 
--- Sleek Outer Glow
 local outerGlow = Instance.new("UIStroke")
 outerGlow.Color = Color3.fromRGB(255, 80, 60)
 outerGlow.Thickness = 3
 outerGlow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 outerGlow.Parent = redCircle
 
--- Red Circle Gradient
 local redGradient = Instance.new("UIGradient")
 redGradient.Color = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 120, 100)),
@@ -687,7 +667,7 @@ function circularDash(target)
 	end
 	conn = run.Heartbeat:Connect(function()
 		local t = math.clamp((tick() - start) / duration, 0, 1)
-		local e = easyCubic(t)
+		local e = easeCubic(t)
 		local curDist = math.clamp(startDist + (gap - startDist) * easeCubic(math.clamp(t * 1.5, 0, 1)), minGap, maxGap)
 		local curAngle = startAngle + dirMult * angle * easeCubic(t)
 		local targetCurrentPos = targetHrp.Position
