@@ -1,5 +1,5 @@
 -- ========================================
--- SIDE DASH ASSIST V2 - STABLE CORE LOGIC
+-- SIDE DASH ASSIST V2 - ORIGINAL CORE
 -- ========================================
 
 local plrs = game:GetService("Players")
@@ -50,6 +50,7 @@ local targetDist = 15
 local straightSpeed = 120
 local velPredict = 0.5
 local aspect = 390 / 480
+local btnImage = "rbxassetid://5852470908"
 local dashSfxId = "rbxassetid://72014632956520"
 local isDashing = false
 local sideAnim = nil
@@ -122,7 +123,7 @@ local function playSideAnim(isLeft)
 	pcall(function() track.Looped = false end)
 	track:Play()
 	pcall(function() dashSfx:Stop() dashSfx:Play() end)
-	delay(0.6, function()
+	delay((TOTAL_TIME or 0.45) + 0.15, function()
 		pcall(function() if track and track.IsPlaying then track:Stop() end end)
 		pcall(function() anim:Destroy() end)
 	end)
@@ -163,6 +164,14 @@ end
 
 local function getDashDuration(val)
 	return 1.5 + (0.12 - 1.5) * math.clamp(val or 84, 0, 100) / 100
+end
+
+local function getDashAngle(val)
+	return 90 + 990 * math.clamp(val or 56, 0, 100) / 100
+end
+
+local function getDashDist(val)
+	return 1 + 11 * math.clamp(val or 50, 0, 100) / 100
 end
 
 local selectedTarget = nil
@@ -248,6 +257,23 @@ local function straightDash(target, speed)
 	while not reached and target and target.Parent and hrp and hrp.Parent do task.wait() end
 end
 
+local sliderVals = {}
+local savedSettings = nil
+local attr = lp:GetAttribute("SettingsV2")
+if type(attr) == "string" then
+	pcall(function()
+		savedSettings = http:JSONDecode(attr)
+		if savedSettings and savedSettings.Sliders then
+			for name, val in pairs(savedSettings.Sliders) do
+				local num = tonumber(val)
+				if num then
+					sliderVals[name] = math.clamp(math.floor(num), 0, 100)
+				end
+			end
+		end
+	end)
+end
+
 local function sendComm(data)
 	pcall(function()
 		local char = lp.Character
@@ -257,18 +283,19 @@ local function sendComm(data)
 	end)
 end
 
-local m1Enabled = true
+local m1Enabled = false
 local dashEnabled = false
 local scriptEnabled = true
+local dashButtonUI = nil
 
 -- END SNIPPET 1
--- SNIPPET 2: Modern GUI with Settings
+-- SNIPPET 2: GUI with Minimize + Open Button, Z-Index Controls
 
-local user = lp
 local settingsGuiModern = Instance.new("ScreenGui")
 settingsGuiModern.Name = "SideDashAssistGUI"
 settingsGuiModern.ResetOnSpawn = false
-settingsGuiModern.Parent = user:WaitForChild("PlayerGui")
+settingsGuiModern.Parent = lp:WaitForChild("PlayerGui")
+settingsGuiModern.ZIndex = 100
 
 local function makeDraggableModern(gui)
 	local dragging = false
@@ -302,6 +329,7 @@ mainFrame.Position = UDim2.new(0.5, -190, 0.12, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = settingsGuiModern
+mainFrame.ZIndex = 101
 makeDraggableModern(mainFrame)
 
 Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 20)
@@ -309,19 +337,6 @@ local mainBgGradient = Instance.new("UIGradient")
 mainBgGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 5, 5)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 15, 15)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))})
 mainBgGradient.Rotation = 90
 mainBgGradient.Parent = mainFrame
-
-local borderFrame = Instance.new("Frame")
-borderFrame.Size = UDim2.new(1, 8, 1, 8)
-borderFrame.Position = UDim2.new(0, -4, 0, -4)
-borderFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-borderFrame.BorderSizePixel = 0
-borderFrame.ZIndex = 0
-borderFrame.Parent = mainFrame
-Instance.new("UICorner", borderFrame).CornerRadius = UDim.new(0, 24)
-local borderGradient = Instance.new("UIGradient")
-borderGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 0, 0)), ColorSequenceKeypoint.new(1, Color3.fromRGB(26, 26, 26))})
-borderGradient.Rotation = 45
-borderGradient.Parent = borderFrame
 
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(0, 190, 0, 30)
@@ -334,18 +349,7 @@ titleLabel.Font = Enum.Font.GothamBold
 titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 titleLabel.TextStrokeTransparency = 0.7
 titleLabel.Parent = mainFrame
-
-local versionLabel = Instance.new("TextLabel")
-versionLabel.Size = UDim2.new(0, 55, 0, 24)
-versionLabel.Position = UDim2.new(0, 215, 0, 13)
-versionLabel.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-versionLabel.BorderSizePixel = 0
-versionLabel.Text = "v1.0"
-versionLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-versionLabel.TextSize = 13
-versionLabel.Font = Enum.Font.GothamBold
-versionLabel.Parent = mainFrame
-Instance.new("UICorner", versionLabel).CornerRadius = UDim.new(0, 8)
+titleLabel.ZIndex = 102
 
 local authorLabel = Instance.new("TextLabel")
 authorLabel.Size = UDim2.new(1, -40, 0, 17)
@@ -358,6 +362,20 @@ authorLabel.Font = Enum.Font.GothamMedium
 authorLabel.TextXAlignment = Enum.TextXAlignment.Left
 authorLabel.TextTransparency = 0.28
 authorLabel.Parent = mainFrame
+authorLabel.ZIndex = 102
+
+local minimizeBtn = Instance.new("TextButton")
+minimizeBtn.Size = UDim2.new(0, 35, 0, 35)
+minimizeBtn.Position = UDim2.new(1, -85, 0, 7)
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+minimizeBtn.Text = "-"
+minimizeBtn.Font = Enum.Font.GothamBold
+minimizeBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+minimizeBtn.TextSize = 19
+minimizeBtn.BorderSizePixel = 0
+minimizeBtn.Parent = mainFrame
+minimizeBtn.ZIndex = 103
+Instance.new("UICorner", minimizeBtn).CornerRadius = UDim.new(0, 10)
 
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 35, 0, 35)
@@ -369,14 +387,15 @@ closeBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 closeBtn.TextSize = 19
 closeBtn.BorderSizePixel = 0
 closeBtn.Parent = mainFrame
+closeBtn.ZIndex = 103
 Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 10)
-closeBtn.MouseButton1Click:Connect(function() mainFrame.Visible = false end)
 
 local buttonContainer = Instance.new("Frame")
 buttonContainer.Size = UDim2.new(0, 200, 0, 48)
 buttonContainer.Position = UDim2.new(0.5, -100, 0, 72)
 buttonContainer.BackgroundTransparency = 1
 buttonContainer.Parent = mainFrame
+buttonContainer.ZIndex = 102
 
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(1, 0, 1, 0)
@@ -387,14 +406,14 @@ toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleButton.TextSize = 20
 toggleButton.Font = Enum.Font.GothamBold
 toggleButton.AutoButtonColor = false
-toggleButton.ZIndex = 2
+toggleButton.ZIndex = 103
 toggleButton.Parent = buttonContainer
 
 local buttonBg = Instance.new("Frame")
 buttonBg.Size = UDim2.new(1, 0, 1, 0)
 buttonBg.BackgroundColor3 = Color3.fromRGB(180, 13, 19)
 buttonBg.BorderSizePixel = 0
-buttonBg.ZIndex = 1
+buttonBg.ZIndex = 102
 buttonBg.Parent = buttonContainer
 Instance.new("UICorner", buttonBg).CornerRadius = UDim.new(0, 12)
 
@@ -408,8 +427,6 @@ buttonBorder.Color = Color3.fromRGB(255, 0, 0)
 buttonBorder.Thickness = 2
 buttonBorder.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 buttonBorder.Parent = buttonBg
-
-local dashButtonUI = nil
 
 local function updateButtonAppearance()
 	if scriptEnabled then
@@ -430,124 +447,99 @@ toggleButton.MouseButton1Click:Connect(function()
 	updateButtonAppearance()
 end)
 
-local settingsBtnModern = Instance.new("TextButton")
-settingsBtnModern.Size = UDim2.new(0, 36, 0, 36)
-settingsBtnModern.Position = UDim2.new(0, 10, 1, -46)
-settingsBtnModern.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-settingsBtnModern.Text = "⚙"
-settingsBtnModern.Font = Enum.Font.GothamBold
-settingsBtnModern.TextColor3 = Color3.fromRGB(0, 0, 0)
-settingsBtnModern.TextSize = 19
-settingsBtnModern.BorderSizePixel = 0
-settingsBtnModern.Parent = mainFrame
-Instance.new("UICorner", settingsBtnModern).CornerRadius = UDim.new(1, 0)
+-- OPEN GUI BUTTON (Left Side)
+local openGuiBtn = Instance.new("TextButton")
+openGuiBtn.Size = UDim2.new(0, 40, 0, 40)
+openGuiBtn.Position = UDim2.new(0, 10, 0.5, -20)
+openGuiBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+openGuiBtn.Text = "≡"
+openGuiBtn.Font = Enum.Font.GothamBold
+openGuiBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+openGuiBtn.TextSize = 24
+openGuiBtn.BorderSizePixel = 0
+openGuiBtn.Parent = settingsGuiModern
+openGuiBtn.ZIndex = 50
+openGuiBtn.Visible = false
+Instance.new("UICorner", openGuiBtn).CornerRadius = UDim.new(0, 8)
+makeDraggableModern(openGuiBtn)
 
-local settingsOverlay = Instance.new("Frame")
-settingsOverlay.Name = "SettingsOverlay"
-settingsOverlay.Size = UDim2.new(0, 360, 0, 280)
-settingsOverlay.Position = UDim2.new(0.5, -180, 0.5, -140)
-settingsOverlay.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-settingsOverlay.Visible = false
-settingsOverlay.Parent = settingsGuiModern
-makeDraggableModern(settingsOverlay)
+openGuiBtn.MouseButton1Click:Connect(function()
+	mainFrame.Visible = true
+	openGuiBtn.Visible = false
+end)
 
-Instance.new("UICorner", settingsOverlay).CornerRadius = UDim.new(0, 19)
-local overlayGradient = Instance.new("UIGradient")
-overlayGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 5, 5)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 15, 15)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))})
-overlayGradient.Rotation = 90
-overlayGradient.Parent = settingsOverlay
+minimizeBtn.MouseButton1Click:Connect(function()
+	mainFrame.Visible = false
+	openGuiBtn.Visible = true
+end)
 
-local settingsTitle = Instance.new("TextLabel")
-settingsTitle.Size = UDim2.new(1, 0, 0, 44)
-settingsTitle.Position = UDim2.new(0, 17, 0, 0)
-settingsTitle.BackgroundTransparency = 1
-settingsTitle.Text = "Dash Settings"
-settingsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-settingsTitle.TextSize = 21
-settingsTitle.Font = Enum.Font.GothamBold
-settingsTitle.TextXAlignment = Enum.TextXAlignment.Left
-settingsTitle.TextStrokeTransparency = 0.7
-settingsTitle.Parent = settingsOverlay
-
-local settingsCloseBtn = Instance.new("TextButton")
-settingsCloseBtn.Size = UDim2.new(0, 33, 0, 33)
-settingsCloseBtn.Position = UDim2.new(1, -45, 0, 6)
-settingsCloseBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-settingsCloseBtn.Text = "X"
-settingsCloseBtn.Font = Enum.Font.GothamBold
-settingsCloseBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-settingsCloseBtn.TextSize = 19
-settingsCloseBtn.BorderSizePixel = 0
-settingsCloseBtn.Parent = settingsOverlay
-Instance.new("UICorner", settingsCloseBtn).CornerRadius = UDim.new(0, 10)
-settingsCloseBtn.MouseButton1Click:Connect(function() settingsOverlay.Visible = false end)
-
-settingsBtnModern.MouseButton1Click:Connect(function() settingsOverlay.Visible = true end)
-
-local soonLabel = Instance.new("TextLabel")
-soonLabel.Size = UDim2.new(1, -34, 0, 100)
-soonLabel.Position = UDim2.new(0, 17, 0, 60)
-soonLabel.BackgroundTransparency = 1
-soonLabel.Text = "COMING SOON..."
-soonLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-soonLabel.TextSize = 28
-soonLabel.Font = Enum.Font.GothamBold
-soonLabel.TextWrapped = true
-soonLabel.Parent = settingsOverlay
-
-local keybindsFrame = Instance.new("Frame")
-keybindsFrame.Size = UDim2.new(1, -34, 0, 70)
-keybindsFrame.Position = UDim2.new(0, 17, 0, 180)
-keybindsFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-keybindsFrame.BorderSizePixel = 0
-keybindsFrame.Parent = settingsOverlay
-Instance.new("UICorner", keybindsFrame).CornerRadius = UDim.new(0, 8)
-
-local keybindsTitle = Instance.new("TextLabel")
-keybindsTitle.Size = UDim2.new(1, -16, 0, 22)
-keybindsTitle.Position = UDim2.new(0, 8, 0, 5)
-keybindsTitle.BackgroundTransparency = 1
-keybindsTitle.Text = "PC Keybinds"
-keybindsTitle.TextColor3 = Color3.fromRGB(255, 100, 100)
-keybindsTitle.TextSize = 15
-keybindsTitle.Font = Enum.Font.GothamBold
-keybindsTitle.TextXAlignment = Enum.TextXAlignment.Left
-keybindsTitle.Parent = keybindsFrame
-
-local keybindsList = Instance.new("TextLabel")
-keybindsList.Size = UDim2.new(1, -16, 1, -30)
-keybindsList.Position = UDim2.new(0, 8, 0, 27)
-keybindsList.BackgroundTransparency = 1
-keybindsList.Text = "E Key / X Key - Dash"
-keybindsList.TextColor3 = Color3.fromRGB(200, 200, 200)
-keybindsList.TextSize = 12
-keybindsList.Font = Enum.Font.Gotham
-keybindsList.TextXAlignment = Enum.TextXAlignment.Left
-keybindsList.TextYAlignment = Enum.TextYAlignment.Top
-keybindsList.Parent = keybindsFrame
+closeBtn.MouseButton1Click:Connect(function() mainFrame.Visible = false end)
 
 -- END SNIPPET 2
--- SNIPPET 3: Red Circle + Original circularDash (Stable)
+-- SNIPPET 3: Red Circle with Icon Above + Sleek Effect (ORIGINAL DASH)
 
 dashButtonUI = Instance.new("ScreenGui")
 dashButtonUI.Name = "DashButtonUI"
 dashButtonUI.ResetOnSpawn = false
-dashButtonUI.Parent = user:WaitForChild("PlayerGui")
+dashButtonUI.Parent = lp:WaitForChild("PlayerGui")
+dashButtonUI.Enabled = true
+dashButtonUI.ZIndex = 10
 
 local dashButton = Instance.new("Frame")
 dashButton.Name = "DashButton"
-dashButton.Size = UDim2.new(0, 100, 0, 100)
-dashButton.Position = UDim2.new(0.5, -50, 0.8, -50)
-dashButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+dashButton.Size = UDim2.new(0, 130, 0, 150)
+dashButton.Position = UDim2.new(0, 20, 0, 20)
+dashButton.BackgroundTransparency = 1
 dashButton.BorderSizePixel = 0
 dashButton.Parent = dashButtonUI
+dashButton.ZIndex = 11
 
-local dashGradient = Instance.new("UIGradient")
-dashGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 50, 50)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200, 0, 0)), ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 0, 0))})
-dashGradient.Rotation = 45
-dashGradient.Parent = dashButton
+-- ICON at top
+local iconLabel = Instance.new("ImageLabel")
+iconLabel.Name = "Icon"
+iconLabel.Size = UDim2.new(0, 60, 0, 60)
+iconLabel.Position = UDim2.new(0.5, -30, 0, 0)
+iconLabel.BackgroundTransparency = 1
+iconLabel.Image = "rbxassetid://110530089410634"
+iconLabel.Parent = dashButton
+iconLabel.ZIndex = 12
 
-Instance.new("UICorner", dashButton).CornerRadius = UDim.new(1, 0)
+-- Icon Shadow
+local iconShadow = Instance.new("UIStroke")
+iconShadow.Color = Color3.fromRGB(0, 0, 0)
+iconShadow.Thickness = 2
+iconShadow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+iconShadow.Parent = iconLabel
+
+-- RED CIRCLE (below icon)
+local redCircle = Instance.new("Frame")
+redCircle.Name = "RedCircle"
+redCircle.Size = UDim2.new(0, 120, 0, 120)
+redCircle.Position = UDim2.new(0.5, -60, 0, 60)
+redCircle.BackgroundColor3 = Color3.fromRGB(220, 0, 0)
+redCircle.BorderSizePixel = 0
+redCircle.Parent = dashButton
+redCircle.ZIndex = 11
+
+-- Sleek Outer Glow
+local outerGlow = Instance.new("UIStroke")
+outerGlow.Color = Color3.fromRGB(255, 80, 60)
+outerGlow.Thickness = 3
+outerGlow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+outerGlow.Parent = redCircle
+
+-- Red Circle Gradient
+local redGradient = Instance.new("UIGradient")
+redGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 120, 100)),
+	ColorSequenceKeypoint.new(0.3, Color3.fromRGB(240, 60, 40)),
+	ColorSequenceKeypoint.new(0.7, Color3.fromRGB(210, 10, 20)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 0, 0))
+})
+redGradient.Rotation = 90
+redGradient.Parent = redCircle
+
+Instance.new("UICorner", redCircle).CornerRadius = UDim.new(1, 0)
 
 local dragging = false
 local dragStart = nil
@@ -555,7 +547,7 @@ local startPos = nil
 local dragInput = nil
 local activeTouches = {}
 
-dashButton.InputBegan:Connect(function(inp)
+redCircle.InputBegan:Connect(function(inp)
 	if inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseButton1 then
 		activeTouches[inp] = true
 		local touchCount = 0
@@ -596,18 +588,27 @@ end)
 input.InputBegan:Connect(function(inp, gp)
 	if gp or isDashing or not scriptEnabled then return end
 	if isDead() then return end
-	local key = input.GamepadEnabled and Enum.KeyCode.DPadUp or Enum.KeyCode.E
+	local key = input.GamepadEnabled and Enum.KeyCode.DPadUp or Enum.KeyCode.G
 	local shouldDash = false
-	if inp.UserInputType == Enum.UserInputType.Keyboard and inp.KeyCode and (inp.KeyCode == Enum.KeyCode.X or inp.KeyCode == key) then shouldDash = true end
-	if (inp.UserInputType == Enum.UserInputType.Gamepad1 or inp.UserInputType == Enum.UserInputType.Gamepad2 or inp.UserInputType == Enum.UserInputType.Gamepad3 or inp.UserInputType == Enum.UserInputType.Gamepad4) and inp.KeyCode == Enum.KeyCode.DPadUp then shouldDash = true end
+	if inp.UserInputType == Enum.UserInputType.Keyboard and inp.KeyCode and (inp.KeyCode == Enum.KeyCode.X or inp.KeyCode == key) then
+		shouldDash = true
+	end
+	if (inp.UserInputType == Enum.UserInputType.Gamepad1 or inp.UserInputType == Enum.UserInputType.Gamepad2 or inp.UserInputType == Enum.UserInputType.Gamepad3 or inp.UserInputType == Enum.UserInputType.Gamepad4) and inp.KeyCode == Enum.KeyCode.DPadUp then
+		shouldDash = true
+	end
+	if inp.UserInputType == Enum.UserInputType.MouseButton1 and inp.Target and (inp.Target.Name == "RedCircle" or inp.Target.Parent.Name == "RedCircle") then
+		shouldDash = true
+	end
 	if shouldDash then
 		local target = getCurrentTarget()
-		if target then circularDash(target) end
+		if target then
+			circularDash(target)
+		end
 	end
 end)
 
 function circularDash(target)
-	if isDashing or not scriptEnabled or isDead() then return end
+	if isDashing then return end
 	if not target or not target:FindFirstChild("HumanoidRootPart") then return end
 	if not hrp then return end
 	isDashing = true
@@ -624,15 +625,31 @@ function circularDash(target)
 		end
 	end
 	
-	-- YOUR VALUES: Gap=2.5, Speed=60, Degree=200
-	local duration = getDashDuration(60)
-	local angle = math.rad(200)
-	local gap = 2.5
+	local speedVal = sliderVals["Dash speed"]
+	if not speedVal then
+		speedVal = savedSettings and savedSettings.Sliders and tonumber(savedSettings.Sliders["Dash speed"]) or 70
+	end
 	
+	local angleVal = sliderVals["Dash Degrees"]
+	if not angleVal then
+		angleVal = savedSettings and savedSettings.Sliders and tonumber(savedSettings.Sliders["Dash Degrees"]) or 32
+	end
+	local gapVal = sliderVals["Dash gap"]
+	if not gapVal then
+		gapVal = savedSettings and savedSettings.Sliders and tonumber(savedSettings.Sliders["Dash gap"]) or 14
+	end
+	local duration = getDashDuration(speedVal)
+	local angle = math.rad(getDashAngle(angleVal))
+	local gap = math.clamp(getDashDist(gapVal), minGap, maxGap)
 	local targetHrp = target.HumanoidRootPart
-	if (targetHrp.Position - hrp.Position).Magnitude >= targetDist then straightDash(targetHrp, straightSpeed) end
-	if not targetHrp or not targetHrp.Parent or not hrp or not hrp.Parent then restore() isDashing = false return end
-	
+	if (targetHrp.Position - hrp.Position).Magnitude >= targetDist then
+		straightDash(targetHrp, straightSpeed)
+	end
+	if not targetHrp or not targetHrp.Parent or not hrp or not hrp.Parent then
+		restore()
+		isDashing = false
+		return
+	end
 	local targetPos = targetHrp.Position
 	local myPos = hrp.Position
 	local right = hrp.CFrame.RightVector
@@ -649,57 +666,56 @@ function circularDash(target)
 	local finished = false
 	local canEnd = false
 	local endQueued = false
-	
 	local function cleanup()
 		if finished then return end
 		finished = true
-		task.delay(0.7, function() canEnd = true if endQueued then isDashing = false end end)
+		task.delay(0.7, function()
+			canEnd = true
+			if endQueued then
+				isDashing = false
+			end
+		end)
 		restore()
 		lastDash = tick()
 	end
-	
 	if m1Enabled then
 		sendComm({{Mobile = true, Goal = "LeftClick"}})
 		task.delay(0.05, function() sendComm({{Goal = "LeftClickRelease", Mobile = true}}) end)
 	end
-	
-	if dashEnabled then sendComm({{Dash = Enum.KeyCode.W, Key = Enum.KeyCode.Q, Goal = "KeyPress"}}) end
-	
+	if dashEnabled then
+		sendComm({{Dash = Enum.KeyCode.W, Key = Enum.KeyCode.Q, Goal = "KeyPress"}})
+	end
 	conn = run.Heartbeat:Connect(function()
-		if isDead() then
-			conn:Disconnect()
-			pcall(function() if sideAnim and sideAnim.IsPlaying then sideAnim:Stop() end sideAnim = nil end)
-			cleanup()
-			isDashing = false
-			return
-		end
-		
 		local t = math.clamp((tick() - start) / duration, 0, 1)
-		local e = easeCubic(t)
+		local e = easyCubic(t)
 		local curDist = math.clamp(startDist + (gap - startDist) * easeCubic(math.clamp(t * 1.5, 0, 1)), minGap, maxGap)
 		local curAngle = startAngle + dirMult * angle * easeCubic(t)
-		
 		local targetCurrentPos = targetHrp.Position
 		local nextPos = Vector3.new(targetCurrentPos.X + curDist * math.cos(curAngle), targetCurrentPos.Y, targetCurrentPos.Z + curDist * math.sin(curAngle))
 		local lookTarget = targetCurrentPos or nextPos
 		local lookAngle = math.atan2((lookTarget - nextPos).Z, (lookTarget - nextPos).X)
 		local camAngle = math.atan2(hrp.CFrame.LookVector.Z, hrp.CFrame.LookVector.X)
 		local finalAngle = camAngle + angleDiff(lookAngle, camAngle) * 0.7
-		
 		pcall(function() hrp.CFrame = CFrame.new(nextPos, nextPos + Vector3.new(math.cos(finalAngle), 0, math.sin(finalAngle))) end)
-		
-		if not aimed and aspect <= e then aimed = true cleanup() end
-		
+		if not aimed and aspect <= e then
+			aimed = true
+			cleanup()
+		end
 		if t >= 1 then
 			conn:Disconnect()
 			pcall(function() if sideAnim and sideAnim.IsPlaying then sideAnim:Stop() end sideAnim = nil end)
-			if not aimed then aimed = true cleanup() end
+			if not aimed then
+				aimed = true
+				cleanup()
+			end
 			endQueued = true
-			if canEnd then isDashing = false end
+			if canEnd then
+				isDashing = false
+			end
 		end
 	end)
 end
 
 updateButtonAppearance()
 
--- END SNIPPET 3
+-- END SNIPPET 3: Paste all 3 in order!
