@@ -3,15 +3,13 @@ local Services = {
 	Heartbeat = game:GetService("RunService").Heartbeat,
 	Input = game:GetService("UserInputService"),
 	Tweens = game:GetService("TweenService"),
-	Workspace = game:GetService("Workspace"),
-	HTTP = game:GetService("HttpService")
+	Workspace = game:GetService("Workspace")
 }
 
 local Me = Services.Players.LocalPlayer
 local Character = Me.Character or Me.CharacterAdded:Wait()
 local Root = Character:WaitForChild("HumanoidRootPart")
 local Hum = Character:FindFirstChildOfClass("Humanoid")
-local Camera = Services.Workspace.CurrentCamera
 
 local Settings = {
 	Speed = 120,
@@ -24,10 +22,7 @@ local Settings = {
 	AimTime = 0.7,
 	VelPredict = 0.5,
 	AimCurve = 200,
-	CirclePoint = 390 / 480,
-	SfxClick = "rbxassetid://5852470908",
-	SfxDash = "rbxassetid://72014632956520",
-	SfxUI = "rbxassetid://6042053626"
+	CirclePoint = 390 / 480
 }
 
 local Anims = {
@@ -43,7 +38,6 @@ local State = {
 	RotLock = false,
 	RotConn = nil,
 	Target = nil,
-	Sfx = nil,
 	M1 = false,
 	Dash = false,
 	Settings = {Speed = 84, Angle = 56, Gap = 50}
@@ -130,10 +124,6 @@ local function PlaySide(isLeft)
 	tr.Priority = Enum.AnimationPriority.Action
 	pcall(function() tr.Looped = false end)
 	tr:Play()
-	pcall(function()
-		State.Sfx:Stop()
-		State.Sfx:Play()
-	end)
 	delay(0.85 + 0.15, function()
 		pcall(function()
 			if tr and tr.IsPlaying then tr:Stop() end
@@ -200,13 +190,6 @@ local function GetTgt()
 	end
 	return FindNear()
 end
-
-State.Sfx = Instance.new("Sound")
-State.Sfx.Name = "DshSfx"
-State.Sfx.SoundId = Settings.SfxDash
-State.Sfx.Volume = 2
-State.Sfx.Looped = false
-State.Sfx.Parent = Services.Workspace
 
 -- ur gay wasp
 local function AimPos(tp, bf)
@@ -456,7 +439,7 @@ local function DoDash(tc)
 end
 
 -- ur gay wasp
-local UI = {
+local UIKit = {
 	p = Services.Players,
 	tw = Services.Tweens,
 	in = Services.Input,
@@ -464,9 +447,9 @@ local UI = {
 }
 
 pcall(function()
-	UI.sg:SetCore("SendNotification", {
+	UIKit.sg:SetCore("SendNotification", {
 		Title = "Side Dash Assist",
-		Text = "Press E to dash!",
+		Text = "E to dash or press button!",
 		Duration = 5
 	})
 end)
@@ -486,14 +469,15 @@ local bl = Instance.new("BlurEffect")
 bl.Size = 0
 bl.Parent = game:GetService("Lighting")
 
-local function Drag(o)
+local function Drag(obj, canDrag)
+	if not canDrag then return end
 	local drg = false
 	local ds, sp, ci
-	o.InputBegan:Connect(function(i)
+	obj.InputBegan:Connect(function(i)
 		if (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1) and not drg then
 			drg = true
 			ds = i.Position
-			sp = o.Position
+			sp = obj.Position
 			ci = i
 			i.Changed:Connect(function()
 				if i.UserInputState == Enum.UserInputState.End then
@@ -503,10 +487,10 @@ local function Drag(o)
 			end)
 		end
 	end)
-	UI.in.InputChanged:Connect(function(i)
+	UIKit.in.InputChanged:Connect(function(i)
 		if drg and ci == i and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then
 			local dt = i.Position - ds
-			o.Position = UDim2.new(sp.X.Scale, sp.X.Offset + dt.X, sp.Y.Scale, sp.Y.Offset + dt.Y)
+			obj.Position = UDim2.new(sp.X.Scale, sp.X.Offset + dt.X, sp.Y.Scale, sp.Y.Offset + dt.Y)
 		end
 	end)
 end
@@ -520,7 +504,7 @@ mf.BackgroundTransparency = 1
 mf.BorderSizePixel = 0
 mf.Visible = false
 mf.Parent = mg
-Drag(mf)
+Drag(mf, true)
 
 local mc = Instance.new("UICorner")
 mc.CornerRadius = UDim.new(0, 20)
@@ -679,12 +663,12 @@ local En = true
 local function UpdTg()
 	if En then
 		tgb.Text = "Enabled: ON"
-		UI.tw:Create(bgbg, TweenInfo.new(0.25), {BackgroundColor3 = Color3.fromRGB(180, 13, 19)}):Play()
-		UI.tw:Create(bgbr, TweenInfo.new(0.25), {Color = Color3.fromRGB(255, 0, 0)}):Play()
+		UIKit.tw:Create(bgbg, TweenInfo.new(0.25), {BackgroundColor3 = Color3.fromRGB(180, 13, 19)}):Play()
+		UIKit.tw:Create(bgbr, TweenInfo.new(0.25), {Color = Color3.fromRGB(255, 0, 0)}):Play()
 	else
 		tgb.Text = "Enabled: OFF"
-		UI.tw:Create(bgbg, TweenInfo.new(0.25), {BackgroundColor3 = Color3.fromRGB(54, 54, 54)}):Play()
-		UI.tw:Create(bgbr, TweenInfo.new(0.25), {Color = Color3.fromRGB(110, 110, 110)}):Play()
+		UIKit.tw:Create(bgbg, TweenInfo.new(0.25), {BackgroundColor3 = Color3.fromRGB(54, 54, 54)}):Play()
+		UIKit.tw:Create(bgbr, TweenInfo.new(0.25), {Color = Color3.fromRGB(110, 110, 110)}):Play()
 	end
 end
 
@@ -697,8 +681,8 @@ UpdTg()
 
 local dshbtn = Instance.new("TextButton")
 dshbtn.Name = "DashBtn"
-dshbtn.Size = UDim2.new(0, 80, 0, 80)
-dshbtn.Position = UDim2.new(1, -120, 1, -100)
+dshbtn.Size = UDim2.new(0, 85, 0, 85)
+dshbtn.Position = UDim2.new(1, -110, 1, -110)
 dshbtn.BackgroundColor3 = Color3.fromRGB(200, 20, 20)
 dshbtn.Text = "DASH"
 dshbtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -706,7 +690,7 @@ dshbtn.TextSize = 18
 dshbtn.Font = Enum.Font.GothamBold
 dshbtn.BorderSizePixel = 0
 dshbtn.Parent = mg
-Drag(dshbtn)
+Drag(dshbtn, true)
 
 local dshc = Instance.new("UICorner")
 dshc.CornerRadius = UDim.new(1, 0)
@@ -732,7 +716,7 @@ dshbtn.InputBegan:Connect(function(i)
 		local tid = i
 		tch[tid] = true
 		if #tch == 1 then
-			UI.tw:Create(dshbtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 100, 100)}):Play()
+			UIKit.tw:Create(dshbtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 100, 100)}):Play()
 			if En and ValidChar() then
 				local t = GetTgt()
 				if t then DoDash(t) end
@@ -742,12 +726,12 @@ dshbtn.InputBegan:Connect(function(i)
 			if i.UserInputState == Enum.UserInputState.End then
 				tch[tid] = nil
 				if #tch == 0 then
-					UI.tw:Create(dshbtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(200, 20, 20)}):Play()
+					UIKit.tw:Create(dshbtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(200, 20, 20)}):Play()
 				end
 			end
 		end)
 	elseif i.UserInputType == Enum.UserInputType.MouseButton1 then
-		UI.tw:Create(dshbtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 100, 100)}):Play()
+		UIKit.tw:Create(dshbtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 100, 100)}):Play()
 		if En and ValidChar() then
 			local t = GetTgt()
 			if t then DoDash(t) end
@@ -758,7 +742,7 @@ end)
 dshbtn.InputEnded:Connect(function(i)
 	if i.UserInputType == Enum.UserInputType.MouseButton1 then
 		if #tch == 0 then
-			UI.tw:Create(dshbtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(200, 20, 20)}):Play()
+			UIKit.tw:Create(dshbtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(200, 20, 20)}):Play()
 		end
 	end
 end)
@@ -787,7 +771,7 @@ seto.BackgroundTransparency = 1
 seto.BorderSizePixel = 0
 seto.Visible = false
 seto.Parent = mg
-Drag(seto)
+Drag(seto, true)
 
 local setoc = Instance.new("UICorner")
 setoc.CornerRadius = UDim.new(0, 19)
@@ -907,7 +891,7 @@ for idx, nm in ipairs(slnames) do
 		end
 	end)
 	
-	UI.in.InputChanged:Connect(function(i)
+	UIKit.in.InputChanged:Connect(function(i)
 		if drg2 and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
 			upslpos(i.Position.X)
 		end
@@ -930,7 +914,7 @@ openb.Parent = mg
 local openbc = Instance.new("UICorner")
 openbc.CornerRadius = UDim.new(0, 10)
 openbc.Parent = openb
-Drag(openb)
+Drag(openb, true)
 
 local function SetTr(al)
 	mf.BackgroundTransparency = al
@@ -947,22 +931,22 @@ end
 local function FIn()
 	mf.Visible = true
 	SetTr(1)
-	UI.tw:Create(bl, TweenInfo.new(0.3), {Size = 12}):Play()
-	UI.tw:Create(mf, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
-	UI.tw:Create(bf, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
-	UI.tw:Create(tl, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-	UI.tw:Create(al, TweenInfo.new(0.3), {TextTransparency = 0.28}):Play()
-	UI.tw:Create(vl, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-	UI.tw:Create(tgb, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-	UI.tw:Create(clsb, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-	UI.tw:Create(minb, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-	UI.tw:Create(setb, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+	UIKit.tw:Create(bl, TweenInfo.new(0.3), {Size = 12}):Play()
+	UIKit.tw:Create(mf, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
+	UIKit.tw:Create(bf, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
+	UIKit.tw:Create(tl, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+	UIKit.tw:Create(al, TweenInfo.new(0.3), {TextTransparency = 0.28}):Play()
+	UIKit.tw:Create(vl, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+	UIKit.tw:Create(tgb, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+	UIKit.tw:Create(clsb, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+	UIKit.tw:Create(minb, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+	UIKit.tw:Create(setb, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
 end
 
 local function FOt(cb)
-	local t1 = UI.tw:Create(bl, TweenInfo.new(0.3), {Size = 0})
-	local t2 = UI.tw:Create(mf, TweenInfo.new(0.3), {BackgroundTransparency = 1})
-	local t3 = UI.tw:Create(bf, TweenInfo.new(0.3), {BackgroundTransparency = 1})
+	local t1 = UIKit.tw:Create(bl, TweenInfo.new(0.3), {Size = 0})
+	local t2 = UIKit.tw:Create(mf, TweenInfo.new(0.3), {BackgroundTransparency = 1})
+	local t3 = UIKit.tw:Create(bf, TweenInfo.new(0.3), {BackgroundTransparency = 1})
 	t1:Play() t2:Play() t3:Play()
 	t2.Completed:Connect(function()
 		mf.Visible = false
@@ -972,11 +956,11 @@ end
 
 local function FSIn()
 	seto.Visible = true
-	UI.tw:Create(seto, TweenInfo.new(0.25), {BackgroundTransparency = 0}):Play()
+	UIKit.tw:Create(seto, TweenInfo.new(0.25), {BackgroundTransparency = 0}):Play()
 end
 
 local function FSOut()
-	local t = UI.tw:Create(seto, TweenInfo.new(0.25), {BackgroundTransparency = 1})
+	local t = UIKit.tw:Create(seto, TweenInfo.new(0.25), {BackgroundTransparency = 1})
 	t:Play()
 	t.Completed:Connect(function() seto.Visible = false end)
 end
@@ -989,7 +973,7 @@ setclsb.MouseButton1Click:Connect(function() FSOut() end)
 
 FIn()
 
-UI.in.InputBegan:Connect(function(i, gp)
+UIKit.in.InputBegan:Connect(function(i, gp)
 	if gp then return end
 	if not En then return end
 	if i.KeyCode == Enum.KeyCode.E then
