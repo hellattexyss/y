@@ -1,95 +1,126 @@
+-- SIDE DASH ASSIST V1.0 - CORE
+
 local Services = {
-	Players = game:GetService("Players"),
-	Heartbeat = game:GetService("RunService").Heartbeat,
-	Input = game:GetService("UserInputService"),
-	Tweens = game:GetService("TweenService"),
-	Workspace = game:GetService("Workspace")
+	Players   = game:GetService("Players"),
+	Run       = game:GetService("RunService"),
+	Input     = game:GetService("UserInputService"),
+	Tweens    = game:GetService("TweenService"),
+	Workspace = game:GetService("Workspace"),
+	Starter   = game:GetService("StarterGui")
 }
 
-local Me = Services.Players.LocalPlayer
-local Character = Me.Character or Me.CharacterAdded:Wait()
-local Root = Character:WaitForChild("HumanoidRootPart")
-local Hum = Character:FindFirstChildOfClass("Humanoid")
+local LocalPlayer = Services.Players.LocalPlayer
+local Character   = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Root        = Character:WaitForChild("HumanoidRootPart")
+local Humanoid    = Character:FindFirstChildOfClass("Humanoid")
 
-local Settings = {
-	Speed = 120,
-	Angle = 120,
-	Gap = 2.5,
-	MaxRange = 40,
-	MinDist = 15,
-	ThresholdStop = 10,
-	BlendRate = 0.7,
-	AimTime = 0.7,
-	VelPredict = 0.5,
-	AimCurve = 200,
-	CirclePoint = 390 / 480
+-- dash behaviour tuning
+local DashProfile = {
+	SpeedBase     = 60,
+	SpeedScale    = 60,   -- affected by slider
+	DistanceMin   = 1.2,
+	DistanceMax   = 60,
+	StopThreshold = 10,
+	MinStartRange = 15
 }
 
-local Anims = {
-	[10449761463] = {L = 10480796021, R = 10480793962, F = 10479335397},
-	[13076380114] = {L = 101843860692381, R = 100087324592640, F = 110878031211717}
+-- aim + path shaping
+local AimProfile = {
+	MaxRange      = 40,
+	BlendStrength = 0.7,
+	TimeToAim     = 0.7,
+	VelocityBias  = 0.5,
+	CurvePower    = 200,
+	ArcProgress   = 390/480
 }
 
-local Maps = Anims[game.PlaceId] or Anims[13076380114]
+-- timing + angles
+local MotionProfile = {
+	Duration      = 0.85,
+	BaseAngleDeg  = 90,
+	AngleSpread   = 990   -- extra from slider
+}
 
+-- animation map (per place)
+local AnimationMap = {
+	[10449761463] = { Left = 10480796021, Right = 10480793962, Forward = 10479335397 },
+	[13076380114] = { Left = 101843860692381, Right = 100087324592640, Forward = 110878031211717 }
+}
+
+local ActiveAnim = AnimationMap[game.PlaceId] or AnimationMap[13076380114]
+
+-- runtime state
 local State = {
-	Dashing = false,
-	SideTrack = nil,
-	RotLock = false,
-	RotConn = nil,
-	Target = nil,
-	M1 = false,
-	Dash = false,
-	Settings = {Speed = 84, Angle = 56, Gap = 50}
+	IsDashing   = false,
+	SideTrack   = nil,
+	RotLock     = false,
+	RotConn     = nil,
+	TargetStore = nil,
+	Flags = {
+		Click     = false,
+		ForceDash = false
+	},
+	Sliders = {
+		Speed    = 84,
+		Angle    = 56,
+		Distance = 50
+	}
 }
 
-local function ValidChar()
-	if not (Hum and Hum.Parent) then return false end
-	if Hum.Health <= 0 then return false end
-	if Hum.PlatformStand then return false end
-	local ok, st = pcall(function() return Hum:GetState() end)
+-- utility: character valid
+local function IsValidCharacter()
+	if not (Humanoid and Humanoid.Parent) then return false end
+	if Humanoid.Health <= 0 then return false end
+	if Humanoid.PlatformStand then return false end
+	local ok, st = pcall(function() return Humanoid:GetState() end)
 	if ok and st == Enum.HumanoidStateType.Physics then return false end
-	local rag = Character:FindFirstChild("Ragdoll")
-	return not (rag and rag:IsA("BoolValue") and rag.Value)
+	local rag = Character:FindChildWhichIsA("BoolValue")
+	if rag and rag.Name:lower():find("rag") and rag.Value then
+		return false
+	end
+	return true
 end
 
-Me.CharacterAdded:Connect(function(nc)
-	Character = nc
-	Root = nc:WaitForChild("HumanoidRootPart")
-	Hum = nc:FindFirstChildOfClass("Humanoid")
-	task.wait(0.05)
-	ProtectRotation()
-end)
-
-local function ProtectRotation()
+-- handle respawn
+local function BindRotationGuard()
 	if State.RotConn then
 		pcall(function() State.RotConn:Disconnect() end)
 		State.RotConn = nil
 	end
 	local h = Character:FindFirstChildOfClass("Humanoid")
-	if h then
-		State.RotConn = h:GetPropertyChangedSignal("AutoRotate"):Connect(function()
-			if State.RotLock and h.AutoRotate then
-				pcall(function() h.AutoRotate = false end)
-			end
-		end)
-	end
+	if not h then return end
+	State.RotConn = h:GetPropertyChangedSignal("AutoRotate"):Connect(function()
+		if State.RotLock and h.AutoRotate then
+			pcall(function() h.AutoRotate = false end)
+		end
+	end)
 end
 
-ProtectRotation()
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+	Character = newChar
+	Root      = newChar:WaitForChild("HumanoidRootPart")
+	Humanoid  = newChar:FindFirstChildOfClass("Humanoid")
+	task.wait(0.05)
+	BindRotationGuard()
+end)
 
-local function NormAng(a1, a2)
+BindRotationGuard()
+
+-- math helpers
+local function NormalizeAngle(a1, a2)
 	local d = a1 - a2
-	while math.pi < d do d = d - 2 * math.pi end
-	while d < -math.pi do d = d + 2 * math.pi end
+	while d > math.pi do d = d - 2*math.pi end
+	while d < -math.pi do d = d + 2*math.pi end
 	return d
 end
 
-local function EaseC(t)
-	return 1 - (1 - math.clamp(t, 0, 1)) ^ 3
+local function EaseCubic01(t)
+	t = math.clamp(t, 0, 1)
+	return 1 - (1 - t)^3
 end
 
-local function GetAnim()
+-- animator
+local function GetAnimator()
 	if not (Character and Character.Parent) then return nil, nil end
 	local h = Character:FindFirstChildOfClass("Humanoid")
 	if not h then return nil, nil end
@@ -102,354 +133,457 @@ local function GetAnim()
 	return h, a
 end
 
-local function PlaySide(isLeft)
+local function PlaySideAnimation(isLeft)
 	pcall(function()
 		if State.SideTrack and State.SideTrack.IsPlaying then
 			State.SideTrack:Stop()
 		end
 	end)
 	State.SideTrack = nil
-	local h, a = GetAnim()
-	if not (h and a) then return end
-	local id = isLeft and Maps.L or Maps.R
-	local ao = Instance.new("Animation")
-	ao.Name = "SideMv"
-	ao.AnimationId = "rbxassetid://" .. tostring(id)
-	local ok, tr = pcall(function() return a:LoadAnimation(ao) end)
-	if not (ok and tr) then
-		pcall(function() ao:Destroy() end)
+
+	local hum, anim = GetAnimator()
+	if not (hum and anim) then return end
+
+	local chosenId = isLeft and ActiveAnim.Left or ActiveAnim.Right
+	local animObj = Instance.new("Animation")
+	animObj.Name = "SideDash"
+	animObj.AnimationId = "rbxassetid://" .. tostring(chosenId)
+
+	local ok, track = pcall(function() return anim:LoadAnimation(animObj) end)
+	if not (ok and track) then
+		pcall(function() animObj:Destroy() end)
 		return
 	end
-	State.SideTrack = tr
-	tr.Priority = Enum.AnimationPriority.Action
-	pcall(function() tr.Looped = false end)
-	tr:Play()
-	delay(0.85 + 0.15, function()
+
+	State.SideTrack = track
+	track.Priority = Enum.AnimationPriority.Action
+	pcall(function() track.Looped = false end)
+	track:Play()
+
+	delay(MotionProfile.Duration + 0.15, function()
 		pcall(function()
-			if tr and tr.IsPlaying then tr:Stop() end
+			if track and track.IsPlaying then track:Stop() end
 		end)
-		pcall(function() ao:Destroy() end)
+		pcall(function() animObj:Destroy() end)
 	end)
 end
 
-local function FindNear()
-	local cl, cd = nil, math.huge
-	local or = Root.Position
-	for _, p in pairs(Services.Players:GetPlayers()) do
-		if p ~= Me and p.Character then
-			local ph = p.Character:FindFirstChildOfClass("Humanoid")
-			local pr = p.Character:FindFirstChild("HumanoidRootPart")
-			if ph and pr and ph.Health > 0 then
-				local d = (pr.Position - or).Magnitude
-				if d < cd and d <= Settings.MaxRange then
-					cl = p.Character
-					cd = d
+-- target search
+local function FindClosestTarget()
+	local origin = Root.Position
+	local closest, bestDist = nil, math.huge
+
+	for _, plr in ipairs(Services.Players:GetPlayers()) do
+		if plr ~= LocalPlayer and plr.Character then
+			local h = plr.Character:FindFirstChildOfClass("Humanoid")
+			local r = plr.Character:FindFirstChild("HumanoidRootPart")
+			if h and r and h.Health > 0 then
+				local d = (r.Position - origin).Magnitude
+				if d < bestDist and d <= AimProfile.MaxRange then
+					closest, bestDist = plr.Character, d
 				end
 			end
 		end
 	end
-	for _, e in pairs(Services.Workspace:GetDescendants()) do
-		if e:IsA("Model") and e:FindFirstChild("Humanoid") and e:FindFirstChild("HumanoidRootPart") then
-			if not Services.Players:GetPlayerFromCharacter(e) then
-				local eh = e:FindFirstChild("Humanoid")
-				local er = e:FindFirstChild("HumanoidRootPart")
-				if eh and eh.Health > 0 then
-					local d = (er.Position - or).Magnitude
-					if d < cd and d <= Settings.MaxRange then
-						cl = e
-						cd = d
+
+	for _, inst in ipairs(Services.Workspace:GetDescendants()) do
+		if inst:IsA("Model") and inst:FindFirstChild("Humanoid") and inst:FindFirstChild("HumanoidRootPart") then
+			if not Services.Players:GetPlayerFromCharacter(inst) then
+				local h = inst:FindFirstChild("Humanoid")
+				local r = inst:FindFirstChild("HumanoidRootPart")
+				if h and h.Health > 0 then
+					local d = (r.Position - origin).Magnitude
+					if d < bestDist and d <= AimProfile.MaxRange then
+						closest, bestDist = inst, d
 					end
 				end
 			end
 		end
 	end
-	return cl
+
+	return closest
 end
 
-Services.Players.PlayerRemoving:Connect(function(rm)
-	if State.Target == rm then
-		State.Target = nil
+Services.Players.PlayerRemoving:Connect(function(removed)
+	if State.TargetStore == removed then
+		State.TargetStore = nil
 	end
 end)
 
-local function GetTgt()
-	if State.Target then
-		if State.Target.Character and State.Target.Character.Parent then
-			local tc = State.Target.Character
-			local tr = tc:FindFirstChild("HumanoidRootPart")
-			local th = tc:FindFirstChild("Humanoid")
-			if tr and th and th.Health > 0 then
-				if (tr.Position - Root.Position).Magnitude <= Settings.MaxRange then
-					return tc
-				end
+local function AcquireTarget()
+	if State.TargetStore and State.TargetStore.Character and State.TargetStore.Character.Parent then
+		local ch = State.TargetStore.Character
+		local r = ch:FindFirstChild("HumanoidRootPart")
+		local h = ch:FindFirstChild("Humanoid")
+		if r and h and h.Health > 0 then
+			if (r.Position - Root.Position).Magnitude <= AimProfile.MaxRange then
+				return ch
 			end
-			State.Target = nil
-		else
-			State.Target = nil
 		end
+		State.TargetStore = nil
 	end
-	return FindNear()
+	return FindClosestTarget()
 end
+
+-- export for next snippets
+_G.SideDash_Core = {
+	Services      = Services,
+	LocalPlayer   = LocalPlayer,
+	GetAnimator   = GetAnimator,
+	PlaySide      = PlaySideAnimation,
+	AcquireTarget = AcquireTarget,
+	IsValid       = IsValidCharacter,
+	State         = State,
+	DashProfile   = DashProfile,
+	AimProfile    = AimProfile,
+	MotionProfile = MotionProfile,
+	ActiveAnim    = ActiveAnim,
+	NormalizeAng  = NormalizeAngle,
+	EaseCubic01   = EaseCubic01
+}
 
 -- ur gay wasp
-local function AimPos(tp, bf)
-	bf = bf or 0.7
+-- SIDE DASH ASSIST V1.0 - MOVEMENT
+
+local Core = _G.SideDash_Core
+local Services      = Core.Services
+local LocalPlayer   = Core.LocalPlayer
+local State         = Core.State
+local DashProfile   = Core.DashProfile
+local AimProfile    = Core.AimProfile
+local MotionProfile = Core.MotionProfile
+local ActiveAnim    = Core.ActiveAnim
+local GetAnimator   = Core.GetAnimator
+local PlaySide      = Core.PlaySide
+local AcquireTarget = Core.AcquireTarget
+local IsValid       = Core.IsValid
+local NormalizeAng  = Core.NormalizeAng
+local EaseCubic01   = Core.EaseCubic01
+
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Root      = Character:WaitForChild("HumanoidRootPart")
+
+local function AimTowards(position, blend)
+	blend = blend or AimProfile.BlendStrength
 	pcall(function()
-		local o = Root.Position
-		local lv = Root.CFrame.LookVector
-		local d = tp - o
-		local hd = Vector3.new(d.X, 0, d.Z)
-		if hd.Magnitude < 0.001 then hd = Vector3.new(1, 0, 0) end
-		local td = hd.Unit
-		local fl = Vector3.new(td.X, lv.Y, td.Z)
-		if fl.Magnitude < 0.001 then
-			fl = Vector3.new(td.X, lv.Y, td.Z + 0.0001)
+		local origin = Root.Position
+		local look   = Root.CFrame.LookVector
+		local delta  = position - origin
+		local flat   = Vector3.new(delta.X, 0, delta.Z)
+		if flat.Magnitude < 0.001 then flat = Vector3.new(1, 0, 0) end
+		local dir    = flat.Unit
+		local goal   = Vector3.new(dir.X, look.Y, dir.Z)
+		if goal.Magnitude < 0.001 then
+			goal = Vector3.new(dir.X, look.Y, dir.Z + 0.0001)
 		end
-		local bl = lv:Lerp(fl.Unit, bf)
-		if bl.Magnitude < 0.001 then
-			bl = Vector3.new(fl.Unit.X, lv.Y, fl.Unit.Z)
+		local lerped = look:Lerp(goal.Unit, blend)
+		if lerped.Magnitude < 0.001 then
+			lerped = Vector3.new(goal.Unit.X, look.Y, goal.Unit.Z)
 		end
-		Root.CFrame = CFrame.new(o, o + bl.Unit)
+		Root.CFrame = CFrame.new(origin, origin + lerped.Unit)
 	end)
 end
 
-local function SmthAim(tr, dur)
-	dur = dur or Settings.AimTime
-	if not (tr and tr.Parent) then return end
-	local st = tick()
-	local cn = nil
-	cn = Services.Heartbeat:Connect(function()
-		if not (tr and tr.Parent) then
-			cn:Disconnect()
+local function SmoothAim(targetRoot, duration)
+	duration = duration or AimProfile.TimeToAim
+	if not (targetRoot and targetRoot.Parent) then return end
+
+	local start = tick()
+	local conn
+	conn = Services.Run.Heartbeat:Connect(function()
+		if not (targetRoot and targetRoot.Parent) then
+			conn:Disconnect()
 			return
 		end
-		local el = tick() - st
-		local pr = math.clamp(el / dur, 0, 1)
-		local ez = 1 - (1 - pr) ^ math.max(1, Settings.AimCurve)
-		local tp = tr.Position
-		local tv = Vector3.new(0, 0, 0)
+
+		local elapsed  = tick() - start
+		local progress = math.clamp(elapsed / duration, 0, 1)
+		local eased    = 1 - (1 - progress)^math.max(1, AimProfile.CurvePower)
+
+		local basePos  = targetRoot.Position
+		local vel      = Vector3.new(0,0,0)
 		pcall(function()
-			tv = tr:GetVelocity() or tr.Velocity or Vector3.new(0, 0, 0)
+			vel = targetRoot:GetVelocity() or targetRoot.Velocity or Vector3.new(0,0,0)
 		end)
-		local pp = tp + Vector3.new(tv.X, 0, tv.Z) * Settings.VelPredict
+		local predicted = basePos + Vector3.new(vel.X, 0, vel.Z) * AimProfile.VelocityBias
+
 		pcall(function()
-			local o = Root.Position
-			local lv = Root.CFrame.LookVector
-			local d = pp - o
-			local hd = Vector3.new(d.X, 0, d.Z)
-			if hd.Magnitude < 0.001 then hd = Vector3.new(1, 0, 0) end
-			local td = hd.Unit
-			local fl = lv:Lerp(Vector3.new(td.X, lv.Y, td.Z).Unit, ez)
-			Root.CFrame = CFrame.new(o, o + fl)
+			local origin = Root.Position
+			local look   = Root.CFrame.LookVector
+			local delta  = predicted - origin
+			local flat   = Vector3.new(delta.X, 0, delta.Z)
+			if flat.Magnitude < 0.001 then flat = Vector3.new(1, 0, 0) end
+			local dir    = flat.Unit
+			local goal   = Vector3.new(dir.X, look.Y, dir.Z).Unit
+			local final  = look:Lerp(goal, eased)
+			Root.CFrame  = CFrame.new(origin, origin + final)
 		end)
-		if pr >= 1 then cn:Disconnect() end
+
+		if progress >= 1 then
+			conn:Disconnect()
+		end
 	end)
 end
 
-local function ExecDash(tc, sp)
-	sp = sp or Settings.Speed
-	local at = Instance.new("Attachment")
-	at.Name = "DshAt"
-	at.Parent = Root
+local function ExecuteLinearDash(targetRoot, dashSpeed)
+	dashSpeed = dashSpeed or DashProfile.SpeedBase + DashProfile.SpeedScale
+
+	local attach = Instance.new("Attachment")
+	attach.Name  = "DashAttach"
+	attach.Parent = Root
+
 	local lv = Instance.new("LinearVelocity")
-	lv.Name = "DshVel"
-	lv.Attachment0 = at
-	lv.MaxForce = math.huge
-	lv.RelativeTo = Enum.ActuatorRelativeTo.World
-	lv.Parent = Root
-	local st = nil
-	local sa = nil
-	if Maps.F then
-		local h, a = GetAnim()
-		if h and a then
-			sa = Instance.new("Animation")
-			sa.Name = "StrMv"
-			sa.AnimationId = "rbxassetid://" .. tostring(Maps.F)
-			local ok, tr = pcall(function() return a:LoadAnimation(sa) end)
-			if ok and tr then
-				tr.Priority = Enum.AnimationPriority.Movement
-				pcall(function() tr.Looped = false end)
-				pcall(function() tr:Play() end)
-				st = tr
+	lv.Name         = "DashVelocity"
+	lv.Attachment0  = attach
+	lv.MaxForce     = math.huge
+	lv.RelativeTo   = Enum.ActuatorRelativeTo.World
+	lv.Parent       = Root
+
+	local moveTrack, moveAnim
+
+	if ActiveAnim.Forward then
+		local hum, anim = GetAnimator()
+		if hum and anim then
+			moveAnim = Instance.new("Animation")
+			moveAnim.Name = "DashForward"
+			moveAnim.AnimationId = "rbxassetid://" .. tostring(ActiveAnim.Forward)
+			local ok, track = pcall(function() return anim:LoadAnimation(moveAnim) end)
+			if ok and track then
+				track.Priority = Enum.AnimationPriority.Movement
+				pcall(function() track.Looped = false end)
+				pcall(function() track:Play() end)
+				moveTrack = track
 			else
-				pcall(function() sa:Destroy() end)
+				pcall(function() moveAnim:Destroy() end)
 			end
 		end
 	end
-	local ic = false
-	local ia = true
-	local hb = nil
-	hb = Services.Heartbeat:Connect(function()
-		if not ia then return end
-		if not (tc and tc.Parent and Root and Root.Parent) then
-			ia = false
-			hb:Disconnect()
+
+	local finished, active = false, true
+	local conn
+	conn = Services.Run.Heartbeat:Connect(function()
+		if not active then return end
+
+		if not (targetRoot and targetRoot.Parent and Root and Root.Parent) then
+			active = false
+			conn:Disconnect()
 			pcall(function() lv:Destroy() end)
-			pcall(function() at:Destroy() end)
+			pcall(function() attach:Destroy() end)
 			pcall(function()
-				if st and st.IsPlaying then st:Stop() end
-				if sa then sa:Destroy() end
+				if moveTrack and moveTrack.IsPlaying then moveTrack:Stop() end
+				if moveAnim then moveAnim:Destroy() end
 			end)
 			return
 		end
-		local tp = tc.Position
-		local d = tp - Root.Position
-		local hd = Vector3.new(d.X, 0, d.Z)
-		if hd.Magnitude > Settings.ThresholdStop then
-			lv.VectorVelocity = hd.Unit * sp
+
+		local targetPos = targetRoot.Position
+		local delta     = targetPos - Root.Position
+		local flat      = Vector3.new(delta.X, 0, delta.Z)
+
+		if flat.Magnitude > DashProfile.StopThreshold then
+			lv.VectorVelocity = flat.Unit * dashSpeed
 			pcall(function()
-				if hd.Magnitude > 0.001 then
-					Root.CFrame = CFrame.new(Root.Position, Root.Position + hd.Unit)
+				if flat.Magnitude > 0.001 then
+					Root.CFrame = CFrame.new(Root.Position, Root.Position + flat.Unit)
 				end
 			end)
 			pcall(function()
-				AimPos(tp, 0.56)
+				AimTowards(targetPos, 0.56)
 			end)
 		else
-			ic = true
-			ia = false
-			hb:Disconnect()
+			finished = true
+			active   = false
+			conn:Disconnect()
 			pcall(function() lv:Destroy() end)
-			pcall(function() at:Destroy() end)
+			pcall(function() attach:Destroy() end)
 			pcall(function()
-				if st and st.IsPlaying then st:Stop() end
-				if sa then sa:Destroy() end
+				if moveTrack and moveTrack.IsPlaying then moveTrack:Stop() end
+				if moveAnim then moveAnim:Destroy() end
 			end)
 		end
 	end)
-	repeat task.wait() until ic or not (tc and tc.Parent and Root and Root.Parent)
+
+	repeat task.wait() until finished or not (targetRoot and targetRoot.Parent and Root and Root.Parent)
 end
 
-local function SendSrv(d)
+local function FireServerPacket(payload)
 	pcall(function()
 		if Character and Character:FindFirstChild("Communicate") then
-			Character.Communicate:FireServer(unpack(d))
+			Character.Communicate:FireServer(unpack(payload))
 		end
 	end)
 end
 
-local function DoDash(tc)
-	if State.Dashing then return end
-	if not (tc and tc:FindFirstChild("HumanoidRootPart")) then return end
+local function ExecuteCircularDash(targetChar)
+	if State.IsDashing then return end
+	if not (targetChar and targetChar:FindFirstChild("HumanoidRootPart")) then return end
 	if not Root then return end
-	State.Dashing = true
-	local ch = Character:FindFirstChildOfClass("Humanoid")
-	local or = nil
-	if ch then
-		or = ch.AutoRotate
-		State.RotLock = true
-		pcall(function() ch.AutoRotate = false end)
+
+	State.IsDashing = true
+	local hum = Character:FindFirstChildOfClass("Humanoid")
+	local originalRotate
+
+	if hum then
+		originalRotate = hum.AutoRotate
+		State.RotLock  = true
+		pcall(function() hum.AutoRotate = false end)
 	end
-	local function Rst()
-		if ch and or ~= nil then
+
+	local function RestoreRotation()
+		if hum and originalRotate ~= nil then
 			State.RotLock = false
-			pcall(function() ch.AutoRotate = or end)
+			pcall(function() hum.AutoRotate = originalRotate end)
 		end
 	end
-	local sp = (State.Settings.Speed or 84) / 100 * 60 + 60
-	local ang = (State.Settings.Angle or 56) / 100 * 990 + 90
-	local gp = (State.Settings.Gap or 50) / 100 * 11 + 1
-	local tr = tc.HumanoidRootPart
-	if Settings.MinDist <= (tr.Position - Root.Position).Magnitude then
-		ExecDash(tr, sp)
+
+	local speedSlider    = State.Sliders.Speed    or 84
+	local angleSlider    = State.Sliders.Angle    or 56
+	local distanceSlider = State.Sliders.Distance or 50
+
+	local dashSpeed   = DashProfile.SpeedBase + DashProfile.SpeedScale * (speedSlider / 100)
+	local dashAngle   = MotionProfile.BaseAngleDeg + MotionProfile.AngleSpread * (angleSlider / 100)
+	local dashRadius  = DashProfile.DistanceMin + (DashProfile.DistanceMax - DashProfile.DistanceMin) * (distanceSlider / 100)
+
+	local targetRoot  = targetChar.HumanoidRootPart
+
+	if DashProfile.MinStartRange <= (targetRoot.Position - Root.Position).Magnitude then
+		ExecuteLinearDash(targetRoot, dashSpeed)
 	end
-	if not (tr and tr.Parent and Root and Root.Parent) then
-		Rst()
-		State.Dashing = false
+
+	if not (targetRoot and targetRoot.Parent and Root and Root.Parent) then
+		RestoreRotation()
+		State.IsDashing = false
 		return
 	end
-	local tp = tr.Position
-	local cp = Root.Position
-	local cr = Root.CFrame.RightVector
-	local d = tr.Position - Root.Position
-	if d.Magnitude < 0.001 then d = Root.CFrame.LookVector end
-	local il = cr:Dot(d.Unit) < 0
-	PlaySide(il)
-	local dm = il and 1 or -1
-	local at = math.atan2(cp.Z - tp.Z, cp.X - tp.X)
-	local hd = (Vector3.new(cp.X, 0, cp.Z) - Vector3.new(tp.X, 0, tp.Z)).Magnitude
-	local cd = math.clamp(hd, 1.2, 60)
-	local st = tick()
-	local mc = nil
-	local as = false
-	local cc = false
-	local se = false
-	local df = false
-	local function BE()
-		if not cc then
-			cc = true
-			task.delay(Settings.AimTime, function()
-				se = true
-				Rst()
-				if df then State.Dashing = false end
+
+	local targetPos = targetRoot.Position
+	local charPos   = Root.Position
+	local right     = Root.CFrame.RightVector
+	local direction = targetRoot.Position - Root.Position
+	if direction.Magnitude < 0.001 then
+		direction = Root.CFrame.LookVector
+	end
+
+	local isLeft    = right:Dot(direction.Unit) < 0
+	PlaySide(isLeft)
+	local dirSign   = isLeft and 1 or -1
+	local baseAngle = math.atan2(charPos.Z - targetPos.Z, charPos.X - targetPos.X)
+	local flatDist  = (Vector3.new(charPos.X, 0, charPos.Z) - Vector3.new(targetPos.X, 0, targetPos.Z)).Magnitude
+	local startDist = math.clamp(flatDist, DashProfile.DistanceMin, DashProfile.DistanceMax)
+
+	local startTime     = tick()
+	local conn
+	local aimTriggered  = false
+	local arcFinished   = false
+	local releaseReady  = false
+	local dashDone      = false
+
+	local function BeginRelease()
+		if not arcFinished then
+			arcFinished = true
+			task.delay(AimProfile.TimeToAim, function()
+				releaseReady = true
+				RestoreRotation()
+				if dashDone then
+					State.IsDashing = false
+				end
 			end)
 		end
 	end
-	if State.M1 then
-		SendSrv({{Mobile = true, Goal = "LeftClick"}})
+
+	if State.Flags.Click then
+		FireServerPacket({{Mobile = true, Goal = "LeftClick"}})
 		task.delay(0.05, function()
-			SendSrv({{Goal = "LeftClickRelease", Mobile = true}})
+			FireServerPacket({{Goal = "LeftClickRelease", Mobile = true}})
 		end)
 	end
-	if State.Dash then
-		SendSrv({{Dash = Enum.KeyCode.W, Key = Enum.KeyCode.Q, Goal = "KeyPress"}})
+
+	if State.Flags.ForceDash then
+		FireServerPacket({{Dash = Enum.KeyCode.W, Key = Enum.KeyCode.Q, Goal = "KeyPress"}})
 	end
-	mc = Services.Heartbeat:Connect(function()
-		local el = tick() - st
-		local pr = math.clamp(el / 0.85, 0, 1)
-		local ez = EaseC(pr)
-		local ap = math.clamp(pr * 1.5, 0, 1)
-		local cr = cd + (gp - cd) * EaseC(ap)
-		local cr2 = math.clamp(cr, 1.2, 60)
-		local ca = at + dm * math.rad(ang) * EaseC(pr)
-		local ctp = tr.Position
-		local ty = ctp.Y
-		local cx = ctp.X + cr2 * math.cos(ca)
-		local cz = ctp.Z + cr2 * math.sin(ca)
-		local np = Vector3.new(cx, ty, cz)
-		if tr then ctp = tr.Position or ctp end
-		local ap2 = math.atan2((ctp - np).Z, (ctp - np).X)
-		local ca2 = math.atan2(Root.CFrame.LookVector.Z, Root.CFrame.LookVector.X)
-		local fa = ca2 + NormAng(ap2, ca2) * Settings.BlendRate
+
+	conn = Services.Run.Heartbeat:Connect(function()
+		local elapsed   = tick() - startTime
+		local progress  = math.clamp(elapsed / MotionProfile.Duration, 0, 1)
+		local eased     = EaseCubic01(progress)
+		local aimProg   = math.clamp(progress * 1.5, 0, 1)
+
+		local radiusNow = startDist + (dashRadius - startDist) * EaseCubic01(aimProg)
+		local radiusCl  = math.clamp(radiusNow, DashProfile.DistanceMin, DashProfile.DistanceMax)
+		local angleNow  = baseAngle + dirSign * math.rad(dashAngle) * EaseCubic01(progress)
+
+		local liveTarget = targetRoot.Position
+		local yLevel     = liveTarget.Y
+		local px         = liveTarget.X + radiusCl * math.cos(angleNow)
+		local pz         = liveTarget.Z + radiusCl * math.sin(angleNow)
+		local newPos     = Vector3.new(px, yLevel, pz)
+
+		local latestPos  = targetRoot and targetRoot.Position or liveTarget
+		local angleToPos = math.atan2((latestPos - newPos).Z, (latestPos - newPos).X)
+		local currentAng = math.atan2(Root.CFrame.LookVector.Z, Root.CFrame.LookVector.X)
+		local finalAng   = currentAng + NormalizeAng(angleToPos, currentAng) * AimProfile.BlendStrength
+
 		pcall(function()
-			Root.CFrame = CFrame.new(np, np + Vector3.new(math.cos(fa), 0, math.sin(fa)))
+			Root.CFrame = CFrame.new(newPos, newPos + Vector3.new(math.cos(finalAng), 0, math.sin(finalAng)))
 		end)
-		if not as and Settings.CirclePoint <= ez then
-			as = true
-			pcall(function() SmthAim(tr, Settings.AimTime) end)
-			BE()
+
+		if not aimTriggered and AimProfile.ArcProgress <= eased then
+			aimTriggered = true
+			pcall(function()
+				SmoothAim(targetRoot, AimProfile.TimeToAim)
+			end)
+			BeginRelease()
 		end
-		if pr >= 1 then
-			mc:Disconnect()
+
+		if progress >= 1 then
+			conn:Disconnect()
 			pcall(function()
 				if State.SideTrack and State.SideTrack.IsPlaying then
 					State.SideTrack:Stop()
 				end
 				State.SideTrack = nil
 			end)
-			if not as then
-				as = true
-				pcall(function() SmthAim(tr, Settings.AimTime) end)
-				BE()
+			if not aimTriggered then
+				aimTriggered = true
+				pcall(function()
+					SmoothAim(targetRoot, AimProfile.TimeToAim)
+				end)
+				BeginRelease()
 			end
-			df = true
-			if se then State.Dashing = false end
+			dashDone = true
+			if releaseReady then
+				State.IsDashing = false
+			end
 		end
 	end)
 end
 
+_G.SideDash_Movement = {
+	ExecuteDash   = ExecuteCircularDash,
+	AcquireTarget = AcquireTarget,
+	IsValid       = IsValid
+}
+
 -- ur gay wasp
+-- SIDE DASH ASSIST V1.0 - GUI
+
+local Core     = _G.SideDash_Core
+local Movement = _G.SideDash_Movement
+
+local Services    = Core.Services
+local LocalPlayer = Core.LocalPlayer
+local State       = Core.State
+
 local UIKit = {
-	p = Services.Players,
-	tw = Services.Tweens,
-	in = Services.Input,
-	sg = game:GetService("StarterGui")
+	Input  = Services.Input,
+	Tween  = Services.Tweens,
+	Gui    = Services.Starter
 }
 
 pcall(function()
-	UIKit.sg:SetCore("SendNotification", {
-		Title = "Side Dash Assist",
-		Text = "E to dash or press button!",
+	UIKit.Gui:SetCore("SendNotification", {
+		Title   = "Side Dash Assist",
+		Text    = "Press E or tap DASH button.",
 		Duration = 5
 	})
 end)
@@ -460,527 +594,565 @@ pcall(function()
 	end
 end)
 
-local mg = Instance.new("ScreenGui")
-mg.Name = "DashGUI"
-mg.ResetOnSpawn = false
-mg.Parent = Me:WaitForChild("PlayerGui")
+local mainGui = Instance.new("ScreenGui")
+mainGui.Name = "SideDashAssistGUI"
+mainGui.ResetOnSpawn = false
+mainGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-local bl = Instance.new("BlurEffect")
-bl.Size = 0
-bl.Parent = game:GetService("Lighting")
+local blur = Instance.new("BlurEffect")
+blur.Size = 0
+blur.Parent = game:GetService("Lighting")
 
-local function Drag(obj, canDrag)
-	if not canDrag then return end
-	local drg = false
-	local ds, sp, ci
-	obj.InputBegan:Connect(function(i)
-		if (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1) and not drg then
-			drg = true
-			ds = i.Position
-			sp = obj.Position
-			ci = i
-			i.Changed:Connect(function()
-				if i.UserInputState == Enum.UserInputState.End then
-					drg = false
-					ci = nil
+local function MakeDraggable(obj, enabled)
+	if not enabled then return end
+	local dragging = false
+	local dragStart, startPos, currentInput
+
+	obj.InputBegan:Connect(function(inp)
+		if (inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseButton1) and not dragging then
+			dragging = true
+			dragStart = inp.Position
+			startPos  = obj.Position
+			currentInput = inp
+			inp.Changed:Connect(function()
+				if inp.UserInputState == Enum.UserInputState.End then
+					dragging = false
+					currentInput = nil
 				end
 			end)
 		end
 	end)
-	UIKit.in.InputChanged:Connect(function(i)
-		if drg and ci == i and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then
-			local dt = i.Position - ds
-			obj.Position = UDim2.new(sp.X.Scale, sp.X.Offset + dt.X, sp.Y.Scale, sp.Y.Offset + dt.Y)
+
+	UIKit.Input.InputChanged:Connect(function(inp)
+		if dragging and currentInput == inp and (inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseMovement) then
+			local delta = inp.Position - dragStart
+			obj.Position = UDim2.new(
+				startPos.X.Scale, startPos.X.Offset + delta.X,
+				startPos.Y.Scale, startPos.Y.Offset + delta.Y
+			)
 		end
 	end)
 end
 
-local mf = Instance.new("Frame")
-mf.Name = "Main"
-mf.Size = UDim2.new(0, 380, 0, 140)
-mf.Position = UDim2.new(0.5, -190, 0.12, 0)
-mf.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-mf.BackgroundTransparency = 1
-mf.BorderSizePixel = 0
-mf.Visible = false
-mf.Parent = mg
-Drag(mf, true)
+-- main panel
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 380, 0, 140)
+mainFrame.Position = UDim2.new(0.5, -190, 0.12, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+mainFrame.BackgroundTransparency = 1
+mainFrame.BorderSizePixel = 0
+mainFrame.Visible = false
+mainFrame.Parent = mainGui
+MakeDraggable(mainFrame, true)
 
-local mc = Instance.new("UICorner")
-mc.CornerRadius = UDim.new(0, 20)
-mc.Parent = mf
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 20)
+mainCorner.Parent = mainFrame
 
-local mbg = Instance.new("UIGradient")
-mbg.Color = ColorSequence.new({
+local mainBgGradient = Instance.new("UIGradient")
+mainBgGradient.Color = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 5, 5)),
 	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 15, 15)),
 	ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
 })
-mbg.Rotation = 90
-mbg.Parent = mf
+mainBgGradient.Rotation = 90
+mainBgGradient.Parent = mainFrame
 
-local bf = Instance.new("Frame")
-bf.Name = "Border"
-bf.Size = UDim2.new(1, 8, 1, 8)
-bf.Position = UDim2.new(0, -4, 0, -4)
-bf.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-bf.BackgroundTransparency = 1
-bf.BorderSizePixel = 0
-bf.ZIndex = 0
-bf.Parent = mf
+local borderFrame = Instance.new("Frame")
+borderFrame.Name = "BorderFrame"
+borderFrame.Size = UDim2.new(1, 8, 1, 8)
+borderFrame.Position = UDim2.new(0, -4, 0, -4)
+borderFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+borderFrame.BackgroundTransparency = 1
+borderFrame.BorderSizePixel = 0
+borderFrame.ZIndex = 0
+borderFrame.Parent = mainFrame
 
-local bfc = Instance.new("UICorner")
-bfc.CornerRadius = UDim.new(0, 24)
-bfc.Parent = bf
+local borderCorner = Instance.new("UICorner")
+borderCorner.CornerRadius = UDim.new(0, 24)
+borderCorner.Parent = borderFrame
 
-local bfg = Instance.new("UIGradient")
-bfg.Color = ColorSequence.new({
+local borderGradient = Instance.new("UIGradient")
+borderGradient.Color = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
 	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 0, 0)),
 	ColorSequenceKeypoint.new(1, Color3.fromRGB(26, 26, 26))
 })
-bfg.Rotation = 45
-bfg.Parent = bf
+borderGradient.Rotation = 45
+borderGradient.Parent = borderFrame
 
-local hf = Instance.new("Frame")
-hf.Size = UDim2.new(1, 0, 0, 50)
-hf.BackgroundTransparency = 1
-hf.Parent = mf
+local headerFrame = Instance.new("Frame")
+headerFrame.Size = UDim2.new(1, 0, 0, 50)
+headerFrame.BackgroundTransparency = 1
+headerFrame.Parent = mainFrame
 
-local tl = Instance.new("TextLabel")
-tl.Size = UDim2.new(0, 190, 0, 30)
-tl.Position = UDim2.new(0, 20, 0, 10)
-tl.BackgroundTransparency = 1
-tl.Text = "Side Dash Assist"
-tl.TextColor3 = Color3.fromRGB(255, 255, 255)
-tl.TextSize = 23
-tl.Font = Enum.Font.GothamBold
-tl.TextXAlignment = Enum.TextXAlignment.Left
-tl.TextStrokeTransparency = 0.7
-tl.Parent = hf
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(0, 190, 0, 30)
+titleLabel.Position = UDim2.new(0, 20, 0, 10)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Side Dash Assist"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 23
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.TextStrokeTransparency = 0.7
+titleLabel.Parent = headerFrame
 
-local vl = Instance.new("TextLabel")
-vl.Size = UDim2.new(0, 55, 0, 24)
-vl.Position = UDim2.new(0, 215, 0, 13)
-vl.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-vl.BorderSizePixel = 0
-vl.Text = "v1.0"
-vl.TextColor3 = Color3.fromRGB(255, 255, 255)
-vl.TextSize = 13
-vl.Font = Enum.Font.GothamBold
-vl.Parent = hf
+local versionLabel = Instance.new("TextLabel")
+versionLabel.Size = UDim2.new(0, 55, 0, 24)
+versionLabel.Position = UDim2.new(0, 215, 0, 13)
+versionLabel.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+versionLabel.BorderSizePixel = 0
+versionLabel.Text = "v1.0"
+versionLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+versionLabel.TextSize = 13
+versionLabel.Font = Enum.Font.GothamBold
+versionLabel.Parent = headerFrame
 
-local vlc = Instance.new("UICorner")
-vlc.CornerRadius = UDim.new(0, 8)
-vlc.Parent = vl
+local versionCorner = Instance.new("UICorner")
+versionCorner.CornerRadius = UDim.new(0, 8)
+versionCorner.Parent = versionLabel
 
-local al = Instance.new("TextLabel")
-al.Size = UDim2.new(1, -40, 0, 17)
-al.Position = UDim2.new(0, 20, 0, 32)
-al.BackgroundTransparency = 1
-al.Text = "by CPS Network"
-al.TextColor3 = Color3.fromRGB(200, 200, 200)
-al.TextSize = 13
-al.Font = Enum.Font.GothamMedium
-al.TextXAlignment = Enum.TextXAlignment.Left
-al.TextTransparency = 0.28
-al.Parent = hf
+local authorLabel = Instance.new("TextLabel")
+authorLabel.Size = UDim2.new(1, -40, 0, 17)
+authorLabel.Position = UDim2.new(0, 20, 0, 32)
+authorLabel.BackgroundTransparency = 1
+authorLabel.Text = "by CPS Network"
+authorLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+authorLabel.TextSize = 13
+authorLabel.Font = Enum.Font.GothamMedium
+authorLabel.TextXAlignment = Enum.TextXAlignment.Left
+authorLabel.TextTransparency = 0.28
+authorLabel.Parent = headerFrame
 
-local clsb = Instance.new("TextButton")
-clsb.Size = UDim2.new(0, 35, 0, 35)
-clsb.Position = UDim2.new(1, -45, 0, 7)
-clsb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-clsb.Text = "X"
-clsb.Font = Enum.Font.GothamBold
-clsb.TextColor3 = Color3.fromRGB(0, 0, 0)
-clsb.TextSize = 19
-clsb.BorderSizePixel = 0
-clsb.Parent = mf
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 35, 0, 35)
+closeBtn.Position = UDim2.new(1, -45, 0, 7)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Text = "X"
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+closeBtn.TextSize = 19
+closeBtn.BorderSizePixel = 0
+closeBtn.Parent = mainFrame
 
-local clsbc = Instance.new("UICorner")
-clsbc.CornerRadius = UDim.new(0, 10)
-clsbc.Parent = clsb
+local closeBtnCorner = Instance.new("UICorner")
+closeBtnCorner.CornerRadius = UDim.new(0, 10)
+closeBtnCorner.Parent = closeBtn
 
-local minb = Instance.new("TextButton")
-minb.Size = UDim2.new(0, 35, 0, 35)
-minb.Position = UDim2.new(1, -85, 0, 7)
-minb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-minb.Text = "_"
-minb.Font = Enum.Font.GothamBold
-minb.TextColor3 = Color3.fromRGB(0, 0, 0)
-minb.TextSize = 22
-minb.BorderSizePixel = 0
-minb.Parent = mf
+local minimizeBtn = Instance.new("TextButton")
+minimizeBtn.Size = UDim2.new(0, 35, 0, 35)
+minimizeBtn.Position = UDim2.new(1, -85, 0, 7)
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+minimizeBtn.Text = "_"
+minimizeBtn.Font = Enum.Font.GothamBold
+minimizeBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+minimizeBtn.TextSize = 22
+minimizeBtn.BorderSizePixel = 0
+minimizeBtn.Parent = mainFrame
 
-local minbc = Instance.new("UICorner")
-minbc.CornerRadius = UDim.new(0, 10)
-minbc.Parent = minb
+local minimizeCorner = Instance.new("UICorner")
+minimizeCorner.CornerRadius = UDim.new(0, 10)
+minimizeCorner.Parent = minimizeBtn
 
-local bc = Instance.new("Frame")
-bc.Size = UDim2.new(0, 200, 0, 48)
-bc.Position = UDim2.new(0.5, -100, 0, 72)
-bc.BackgroundTransparency = 1
-bc.Parent = mf
+local buttonContainer = Instance.new("Frame")
+buttonContainer.Size = UDim2.new(0, 200, 0, 48)
+buttonContainer.Position = UDim2.new(0.5, -100, 0, 72)
+buttonContainer.BackgroundTransparency = 1
+buttonContainer.Parent = mainFrame
 
-local tgb = Instance.new("TextButton")
-tgb.Size = UDim2.new(1, 0, 1, 0)
-tgb.BackgroundTransparency = 1
-tgb.BorderSizePixel = 0
-tgb.TextColor3 = Color3.fromRGB(255, 255, 255)
-tgb.TextSize = 20
-tgb.Font = Enum.Font.GothamBold
-tgb.AutoButtonColor = false
-tgb.ZIndex = 2
-tgb.Parent = bc
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(1, 0, 1, 0)
+toggleButton.BackgroundTransparency = 1
+toggleButton.BorderSizePixel = 0
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.TextSize = 20
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.AutoButtonColor = false
+toggleButton.ZIndex = 2
+toggleButton.Parent = buttonContainer
 
-local bgbg = Instance.new("Frame")
-bgbg.Size = UDim2.new(1, 0, 1, 0)
-bgbg.BackgroundColor3 = Color3.fromRGB(180, 13, 19)
-bgbg.BorderSizePixel = 0
-bgbg.ZIndex = 1
-bgbg.Parent = bc
+local buttonBg = Instance.new("Frame")
+buttonBg.Size = UDim2.new(1, 0, 1, 0)
+buttonBg.BackgroundColor3 = Color3.fromRGB(180, 13, 19)
+buttonBg.BorderSizePixel = 0
+buttonBg.ZIndex = 1
+buttonBg.Parent = buttonContainer
 
-local bgc = Instance.new("UICorner")
-bgc.CornerRadius = UDim.new(0, 12)
-bgc.Parent = bgbg
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 12)
+buttonCorner.Parent = buttonBg
 
-local bgg = Instance.new("UIGradient")
-bgg.Color = ColorSequence.new({
+local buttonGradient = Instance.new("UIGradient")
+buttonGradient.Color = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 13, 19)),
 	ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 0, 0))
 })
-bgg.Rotation = 90
-bgg.Parent = bgbg
+buttonGradient.Rotation = 90
+buttonGradient.Parent = buttonBg
 
-local bgbr = Instance.new("UIStroke")
-bgbr.Color = Color3.fromRGB(255, 0, 0)
-bgbr.Thickness = 2
-bgbr.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-bgbr.Parent = bgbg
+local buttonBorder = Instance.new("UIStroke")
+buttonBorder.Color = Color3.fromRGB(255, 0, 0)
+buttonBorder.Thickness = 2
+buttonBorder.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+buttonBorder.Parent = buttonBg
 
-local En = true
+local EnabledFlag = true
 
-local function UpdTg()
-	if En then
-		tgb.Text = "Enabled: ON"
-		UIKit.tw:Create(bgbg, TweenInfo.new(0.25), {BackgroundColor3 = Color3.fromRGB(180, 13, 19)}):Play()
-		UIKit.tw:Create(bgbr, TweenInfo.new(0.25), {Color = Color3.fromRGB(255, 0, 0)}):Play()
+local function UpdateToggle()
+	if EnabledFlag then
+		toggleButton.Text = "Enabled: ON"
+		UIKit.Tween:Create(buttonBg, TweenInfo.new(0.25), {BackgroundColor3 = Color3.fromRGB(180, 13, 19)}):Play()
+		UIKit.Tween:Create(buttonBorder, TweenInfo.new(0.25), {Color = Color3.fromRGB(255, 0, 0)}):Play()
 	else
-		tgb.Text = "Enabled: OFF"
-		UIKit.tw:Create(bgbg, TweenInfo.new(0.25), {BackgroundColor3 = Color3.fromRGB(54, 54, 54)}):Play()
-		UIKit.tw:Create(bgbr, TweenInfo.new(0.25), {Color = Color3.fromRGB(110, 110, 110)}):Play()
+		toggleButton.Text = "Enabled: OFF"
+		UIKit.Tween:Create(buttonBg, TweenInfo.new(0.25), {BackgroundColor3 = Color3.fromRGB(54, 54, 54)}):Play()
+		UIKit.Tween:Create(buttonBorder, TweenInfo.new(0.25), {Color = Color3.fromRGB(110, 110, 110)}):Play()
 	end
 end
 
-tgb.MouseButton1Click:Connect(function()
-	En = not En
-	UpdTg()
+toggleButton.MouseButton1Click:Connect(function()
+	EnabledFlag = not EnabledFlag
+	UpdateToggle()
 end)
 
-UpdTg()
+UpdateToggle()
 
-local dshbtn = Instance.new("TextButton")
-dshbtn.Name = "DashBtn"
-dshbtn.Size = UDim2.new(0, 85, 0, 85)
-dshbtn.Position = UDim2.new(1, -110, 1, -110)
-dshbtn.BackgroundColor3 = Color3.fromRGB(200, 20, 20)
-dshbtn.Text = "DASH"
-dshbtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-dshbtn.TextSize = 18
-dshbtn.Font = Enum.Font.GothamBold
-dshbtn.BorderSizePixel = 0
-dshbtn.Parent = mg
-Drag(dshbtn, true)
+-- settings button + overlay (just sliders already wired in State.Sliders)
+local settingsBtn = Instance.new("TextButton")
+settingsBtn.Size = UDim2.new(0, 36, 0, 36)
+settingsBtn.Position = UDim2.new(0, 10, 1, -46)
+settingsBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+settingsBtn.Text = "⚙"
+settingsBtn.Font = Enum.Font.GothamBold
+settingsBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+settingsBtn.TextSize = 19
+settingsBtn.BorderSizePixel = 0
+settingsBtn.Parent = mainFrame
 
-local dshc = Instance.new("UICorner")
-dshc.CornerRadius = UDim.new(1, 0)
-dshc.Parent = dshbtn
+local settingsBtnCorner = Instance.new("UICorner")
+settingsBtnCorner.CornerRadius = UDim.new(1, 0)
+settingsBtnCorner.Parent = settingsBtn
 
-local dshg = Instance.new("UIGradient")
-dshg.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 80, 80)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(140, 10, 10))
-})
-dshg.Rotation = 135
-dshg.Parent = dshbtn
+local settingsOverlay = Instance.new("Frame")
+settingsOverlay.Name = "SettingsOverlay"
+settingsOverlay.Size = UDim2.new(0, 300, 0, 240)
+settingsOverlay.Position = UDim2.new(0, 40, 0.2, 0)
+settingsOverlay.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+settingsOverlay.BackgroundTransparency = 1
+settingsOverlay.BorderSizePixel = 0
+settingsOverlay.Visible = false
+settingsOverlay.Parent = mainGui
+MakeDraggable(settingsOverlay, true)
 
-local dshbr = Instance.new("UIStroke")
-dshbr.Color = Color3.fromRGB(255, 100, 100)
-dshbr.Thickness = 3
-dshbr.Parent = dshbtn
+local overlayCorner = Instance.new("UICorner")
+overlayCorner.CornerRadius = UDim.new(0, 19)
+overlayCorner.Parent = settingsOverlay
 
-local tch = {}
-
-dshbtn.InputBegan:Connect(function(i)
-	if i.UserInputType == Enum.UserInputType.Touch then
-		local tid = i
-		tch[tid] = true
-		if #tch == 1 then
-			UIKit.tw:Create(dshbtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 100, 100)}):Play()
-			if En and ValidChar() then
-				local t = GetTgt()
-				if t then DoDash(t) end
-			end
-		end
-		i.Changed:Connect(function()
-			if i.UserInputState == Enum.UserInputState.End then
-				tch[tid] = nil
-				if #tch == 0 then
-					UIKit.tw:Create(dshbtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(200, 20, 20)}):Play()
-				end
-			end
-		end)
-	elseif i.UserInputType == Enum.UserInputType.MouseButton1 then
-		UIKit.tw:Create(dshbtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 100, 100)}):Play()
-		if En and ValidChar() then
-			local t = GetTgt()
-			if t then DoDash(t) end
-		end
-	end
-end)
-
-dshbtn.InputEnded:Connect(function(i)
-	if i.UserInputType == Enum.UserInputType.MouseButton1 then
-		if #tch == 0 then
-			UIKit.tw:Create(dshbtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(200, 20, 20)}):Play()
-		end
-	end
-end)
-
-local setb = Instance.new("TextButton")
-setb.Size = UDim2.new(0, 36, 0, 36)
-setb.Position = UDim2.new(0, 10, 1, -46)
-setb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-setb.Text = "⚙"
-setb.Font = Enum.Font.GothamBold
-setb.TextColor3 = Color3.fromRGB(0, 0, 0)
-setb.TextSize = 19
-setb.BorderSizePixel = 0
-setb.Parent = mf
-
-local setbc = Instance.new("UICorner")
-setbc.CornerRadius = UDim.new(1, 0)
-setbc.Parent = setb
-
-local seto = Instance.new("Frame")
-seto.Name = "SetOverlay"
-seto.Size = UDim2.new(0, 300, 0, 240)
-seto.Position = UDim2.new(0, 40, 0.2, 0)
-seto.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-seto.BackgroundTransparency = 1
-seto.BorderSizePixel = 0
-seto.Visible = false
-seto.Parent = mg
-Drag(seto, true)
-
-local setoc = Instance.new("UICorner")
-setoc.CornerRadius = UDim.new(0, 19)
-setoc.Parent = seto
-
-local setog = Instance.new("UIGradient")
-setog.Color = ColorSequence.new({
+local overlayGradient = Instance.new("UIGradient")
+overlayGradient.Color = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 5, 5)),
 	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 15, 15)),
 	ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
 })
-setog.Rotation = 90
-setog.Parent = seto
+overlayGradient.Rotation = 90
+overlayGradient.Parent = settingsOverlay
 
-local sett = Instance.new("TextLabel")
-sett.Size = UDim2.new(1, -60, 0, 40)
-sett.Position = UDim2.new(0, 16, 0, 5)
-sett.BackgroundTransparency = 1
-sett.Text = "Settings"
-sett.TextColor3 = Color3.fromRGB(255, 255, 255)
-sett.TextSize = 21
-sett.Font = Enum.Font.GothamBold
-sett.TextXAlignment = Enum.TextXAlignment.Left
-sett.Parent = seto
+local settingsTitle = Instance.new("TextLabel")
+settingsTitle.Size = UDim2.new(1, -60, 0, 40)
+settingsTitle.Position = UDim2.new(0, 16, 0, 5)
+settingsTitle.BackgroundTransparency = 1
+settingsTitle.Text = "Settings"
+settingsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+settingsTitle.TextSize = 21
+settingsTitle.Font = Enum.Font.GothamBold
+settingsTitle.TextXAlignment = Enum.TextXAlignment.Left
+settingsTitle.Parent = settingsOverlay
 
-local setclsb = Instance.new("TextButton")
-setclsb.Size = UDim2.new(0, 35, 0, 35)
-setclsb.Position = UDim2.new(1, -45, 0, 6)
-setclsb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-setclsb.Text = "X"
-setclsb.Font = Enum.Font.GothamBold
-setclsb.TextColor3 = Color3.fromRGB(0, 0, 0)
-setclsb.TextSize = 19
-setclsb.BorderSizePixel = 0
-setclsb.Parent = seto
+local settingsCloseBtn = Instance.new("TextButton")
+settingsCloseBtn.Size = UDim2.new(0, 35, 0, 35)
+settingsCloseBtn.Position = UDim2.new(1, -45, 0, 6)
+settingsCloseBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+settingsCloseBtn.Text = "X"
+settingsCloseBtn.Font = Enum.Font.GothamBold
+settingsCloseBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+settingsCloseBtn.TextSize = 19
+settingsCloseBtn.BorderSizePixel = 0
+settingsCloseBtn.Parent = settingsOverlay
 
-local setclsc = Instance.new("UICorner")
-setclsc.CornerRadius = UDim.new(0, 10)
-setclsc.Parent = setclsb
+local settingsCloseCorner = Instance.new("UICorner")
+settingsCloseCorner.CornerRadius = UDim.new(0, 10)
+settingsCloseCorner.Parent = settingsCloseBtn
 
-local slnames = {"Dash speed", "Dash Angle", "Dash Gap"}
-for idx, nm in ipairs(slnames) do
-	local lbl = Instance.new("TextLabel")
-	lbl.Parent = seto
-	lbl.BackgroundTransparency = 1
-	lbl.Text = nm
-	lbl.Font = Enum.Font.Gotham
-	lbl.TextColor3 = Color3.fromRGB(120, 120, 120)
-	lbl.TextScaled = true
-	lbl.TextXAlignment = Enum.TextXAlignment.Left
-	lbl.Size = UDim2.new(0, 120, 0, 20)
-	lbl.Position = UDim2.new(0.04, 0, 0.18 + (idx - 1) * 0.24, 0)
-	
-	local slc = Instance.new("Frame")
-	slc.Parent = seto
-	slc.BackgroundTransparency = 1
-	slc.Size = UDim2.new(0, 160, 0, 24)
-	slc.Position = UDim2.new(0.38, 5, 0.18 + (idx - 1) * 0.24, 0)
-	
-	local slt = Instance.new("Frame")
-	slt.Parent = slc
-	slt.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	slt.BackgroundTransparency = 0.7
-	slt.Size = UDim2.new(1, -20, 0, 6)
-	slt.Position = UDim2.new(0, 10, 0.5, -3)
-	Instance.new("UICorner", slt).CornerRadius = UDim.new(1, 0)
-	
-	local slh = Instance.new("TextButton")
-	slh.Parent = slc
-	slh.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
-	slh.Size = UDim2.new(0, 20, 0, 20)
-	slh.Position = UDim2.new(0, -10, 0.5, -10)
-	slh.Text = ""
-	slh.AutoButtonColor = false
-	slh.ZIndex = 2
-	Instance.new("UICorner", slh).CornerRadius = UDim.new(1, 0)
-	
-	local vl = Instance.new("TextLabel")
-	vl.Parent = seto
-	vl.Size = UDim2.new(0, 70, 0, 20)
-	vl.Position = UDim2.new(0.82, 0, 0.18 + (idx - 1) * 0.24, 0)
-	vl.BackgroundTransparency = 1
-	vl.Font = Enum.Font.GothamBold
-	vl.TextColor3 = Color3.fromRGB(25, 25, 25)
-	vl.TextSize = 14
-	vl.Text = "0"
-	
-	local drg2 = false
-	local skey = string.sub(nm, 6)
-	local dval = State.Settings[skey] or (nm == "Dash speed" and 84 or nm == "Dash Angle" and 56 or 50)
-	slh.Position = UDim2.new(dval / 100, -10, 0.5, -10)
-	State.Settings[skey] = dval
-	
-	local function updv()
-		vl.Text = tostring(dval)
+-- sliders: Speed / Angle / Distance
+local sliderNames = {"Speed", "Angle", "Distance"}
+
+for i, key in ipairs(sliderNames) do
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(0, 120, 0, 20)
+	label.Position = UDim2.new(0.04, 0, 0.18 + (i-1)*0.24, 0)
+	label.BackgroundTransparency = 1
+	label.Text = "Dash " .. key
+	label.TextColor3 = Color3.fromRGB(200, 200, 200)
+	label.TextScaled = true
+	label.Font = Enum.Font.Gotham
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = settingsOverlay
+
+	local sliderFrame = Instance.new("Frame")
+	sliderFrame.Size = UDim2.new(0, 160, 0, 24)
+	sliderFrame.Position = UDim2.new(0.38, 5, 0.18 + (i-1)*0.24, 0)
+	sliderFrame.BackgroundTransparency = 1
+	sliderFrame.Parent = settingsOverlay
+
+	local track = Instance.new("Frame")
+	track.Size = UDim2.new(1, -20, 0, 6)
+	track.Position = UDim2.new(0, 10, 0.5, -3)
+	track.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	track.BackgroundTransparency = 0.7
+	track.Parent = sliderFrame
+
+	local trackCorner = Instance.new("UICorner")
+	trackCorner.CornerRadius = UDim.new(1, 0)
+	trackCorner.Parent = track
+
+	local handle = Instance.new("TextButton")
+	handle.Size = UDim2.new(0, 20, 0, 20)
+	handle.Position = UDim2.new(0, -10, 0.5, -10)
+	handle.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
+	handle.BorderSizePixel = 0
+	handle.Text = ""
+	handle.AutoButtonColor = false
+	handle.Parent = sliderFrame
+
+	local handleCorner = Instance.new("UICorner")
+	handleCorner.CornerRadius = UDim.new(1, 0)
+	handleCorner.Parent = handle
+
+	local valueLabel = Instance.new("TextLabel")
+	valueLabel.Size = UDim2.new(0, 70, 0, 20)
+	valueLabel.Position = UDim2.new(0.82, 0, 0.18 + (i-1)*0.24, 0)
+	valueLabel.BackgroundTransparency = 1
+	valueLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+	valueLabel.TextSize = 14
+	valueLabel.Font = Enum.Font.GothamBold
+	valueLabel.Text = "0"
+	valueLabel.Parent = settingsOverlay
+
+	local dragging = false
+	local val = State.Sliders[key] or 50
+	handle.Position = UDim2.new(val/100, -10, 0.5, -10)
+	valueLabel.Text = tostring(val)
+	State.Sliders[key] = val
+
+	local function SetFromX(x)
+		local width  = track.AbsoluteSize.X
+		local origin = track.AbsolutePosition.X
+		if width <= 0 then return end
+		local alpha = math.clamp((x - origin) / width, 0, 1)
+		val = math.floor(alpha * 100)
+		State.Sliders[key] = val
+		handle.Position = UDim2.new(alpha, -10, 0.5, -10)
+		valueLabel.Text = tostring(val)
 	end
-	updv()
-	
-	local function upslpos(ix)
-		local tw = slt.AbsoluteSize.X
-		local tp = slt.AbsolutePosition.X
-		if tw ~= 0 then
-			local cp = math.clamp((ix - tp) / tw, 0, 1)
-			slh.Position = UDim2.new(cp, -10, 0.5, -10)
-			dval = math.floor(cp * 100)
-			State.Settings[skey] = dval
-			updv()
-		end
-	end
-	
-	slh.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-			drg2 = true
-			i.Changed:Connect(function()
-				if i.UserInputState == Enum.UserInputState.End then drg2 = false end
+
+	handle.InputBegan:Connect(function(inp)
+		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			inp.Changed:Connect(function()
+				if inp.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
 			end)
 		end
 	end)
-	
-	UIKit.in.InputChanged:Connect(function(i)
-		if drg2 and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-			upslpos(i.Position.X)
+
+	UIKit.Input.InputChanged:Connect(function(inp)
+		if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
+			SetFromX(inp.Position.X)
 		end
 	end)
 end
 
-local openb = Instance.new("TextButton")
-openb.Name = "OpenBtn"
-openb.Size = UDim2.new(0, 90, 0, 34)
-openb.Position = UDim2.new(0, 10, 0.5, -17)
-openb.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-openb.Text = "Open GUI"
-openb.TextColor3 = Color3.fromRGB(255, 255, 255)
-openb.TextSize = 15
-openb.Font = Enum.Font.GothamBold
-openb.BorderSizePixel = 0
-openb.Visible = false
-openb.Parent = mg
+local openButton = Instance.new("TextButton")
+openButton.Name = "OpenGuiButton"
+openButton.Size = UDim2.new(0, 90, 0, 34)
+openButton.Position = UDim2.new(0, 10, 0.5, -17)
+openButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+openButton.Text = "Open GUI"
+openButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+openButton.TextSize = 15
+openButton.Font = Enum.Font.GothamBold
+openButton.BorderSizePixel = 0
+openButton.Visible = false
+openButton.Parent = mainGui
 
-local openbc = Instance.new("UICorner")
-openbc.CornerRadius = UDim.new(0, 10)
-openbc.Parent = openb
-Drag(openb, true)
+local openCorner = Instance.new("UICorner")
+openCorner.CornerRadius = UDim.new(0, 10)
+openCorner.Parent = openButton
+MakeDraggable(openButton, true)
 
-local function SetTr(al)
-	mf.BackgroundTransparency = al
-	bf.BackgroundTransparency = al
-	tl.TextTransparency = al
-	al.TextTransparency = 0.28 + (al * 0.7)
-	vl.TextTransparency = al
-	tgb.TextTransparency = al
-	clsb.TextTransparency = al
-	minb.TextTransparency = al
-	setb.TextTransparency = al
+local function SetMainTransparency(alpha)
+	mainFrame.BackgroundTransparency   = alpha
+	borderFrame.BackgroundTransparency = alpha
+	titleLabel.TextTransparency        = alpha
+	authorLabel.TextTransparency       = 0.28 + (alpha * 0.7)
+	versionLabel.TextTransparency      = alpha
+	toggleButton.TextTransparency      = alpha
+	closeBtn.TextTransparency          = alpha
+	minimizeBtn.TextTransparency       = alpha
+	settingsBtn.TextTransparency       = alpha
 end
 
-local function FIn()
-	mf.Visible = true
-	SetTr(1)
-	UIKit.tw:Create(bl, TweenInfo.new(0.3), {Size = 12}):Play()
-	UIKit.tw:Create(mf, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
-	UIKit.tw:Create(bf, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
-	UIKit.tw:Create(tl, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-	UIKit.tw:Create(al, TweenInfo.new(0.3), {TextTransparency = 0.28}):Play()
-	UIKit.tw:Create(vl, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-	UIKit.tw:Create(tgb, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-	UIKit.tw:Create(clsb, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-	UIKit.tw:Create(minb, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-	UIKit.tw:Create(setb, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+local function FadeInMain()
+	mainFrame.Visible = true
+	SetMainTransparency(1)
+
+	UIKit.Tween:Create(blur, TweenInfo.new(0.3), {Size = 12}):Play()
+	UIKit.Tween:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
+	UIKit.Tween:Create(borderFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
+	UIKit.Tween:Create(titleLabel, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+	UIKit.Tween:Create(authorLabel, TweenInfo.new(0.3), {TextTransparency = 0.28}):Play()
+	UIKit.Tween:Create(versionLabel, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+	UIKit.Tween:Create(toggleButton, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+	UIKit.Tween:Create(closeBtn, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+	UIKit.Tween:Create(minimizeBtn, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+	UIKit.Tween:Create(settingsBtn, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
 end
 
-local function FOt(cb)
-	local t1 = UIKit.tw:Create(bl, TweenInfo.new(0.3), {Size = 0})
-	local t2 = UIKit.tw:Create(mf, TweenInfo.new(0.3), {BackgroundTransparency = 1})
-	local t3 = UIKit.tw:Create(bf, TweenInfo.new(0.3), {BackgroundTransparency = 1})
+local function FadeOutMain(callback)
+	local t1 = UIKit.Tween:Create(blur, TweenInfo.new(0.3), {Size = 0})
+	local t2 = UIKit.Tween:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 1})
+	local t3 = UIKit.Tween:Create(borderFrame, TweenInfo.new(0.3), {BackgroundTransparency = 1})
+
 	t1:Play() t2:Play() t3:Play()
+
 	t2.Completed:Connect(function()
-		mf.Visible = false
-		if cb then cb() end
+		mainFrame.Visible = false
+		if callback then callback() end
 	end)
 end
 
-local function FSIn()
-	seto.Visible = true
-	UIKit.tw:Create(seto, TweenInfo.new(0.25), {BackgroundTransparency = 0}):Play()
+local function FadeInSettings()
+	settingsOverlay.Visible = true
+	UIKit.Tween:Create(settingsOverlay, TweenInfo.new(0.25), {BackgroundTransparency = 0}):Play()
 end
 
-local function FSOut()
-	local t = UIKit.tw:Create(seto, TweenInfo.new(0.25), {BackgroundTransparency = 1})
+local function FadeOutSettings()
+	local t = UIKit.Tween:Create(settingsOverlay, TweenInfo.new(0.25), {BackgroundTransparency = 1})
 	t:Play()
-	t.Completed:Connect(function() seto.Visible = false end)
+	t.Completed:Connect(function()
+		settingsOverlay.Visible = false
+	end)
 end
 
-clsb.MouseButton1Click:Connect(function() FOt() end)
-minb.MouseButton1Click:Connect(function() FOt(function() openb.Visible = true end) end)
-openb.MouseButton1Click:Connect(function() openb.Visible = false FIn() end)
-setb.MouseButton1Click:Connect(function() FSIn() end)
-setclsb.MouseButton1Click:Connect(function() FSOut() end)
+closeBtn.MouseButton1Click:Connect(function()
+	FadeOutMain()
+end)
 
-FIn()
+minimizeBtn.MouseButton1Click:Connect(function()
+	FadeOutMain(function()
+		openButton.Visible = true
+	end)
+end)
 
-UIKit.in.InputBegan:Connect(function(i, gp)
-	if gp then return end
-	if not En then return end
-	if i.KeyCode == Enum.KeyCode.E then
-		if not ValidChar() then return end
-		local t = GetTgt()
-		if t then DoDash(t) end
+openButton.MouseButton1Click:Connect(function()
+	openButton.Visible = false
+	FadeInMain()
+end)
+
+settingsBtn.MouseButton1Click:Connect(function()
+	FadeInSettings()
+end)
+
+settingsCloseBtn.MouseButton1Click:Connect(function()
+	FadeOutSettings()
+end)
+
+FadeInMain()
+
+-- DASH BUTTON (right side)
+local dashButton = Instance.new("TextButton")
+dashButton.Name = "DashButton"
+dashButton.Size = UDim2.new(0, 80, 0, 80)
+dashButton.Position = UDim2.new(1, -110, 1, -110)
+dashButton.BackgroundColor3 = Color3.fromRGB(200, 20, 20)
+dashButton.Text = "DASH"
+dashButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+dashButton.TextSize = 18
+dashButton.Font = Enum.Font.GothamBold
+dashButton.BorderSizePixel = 0
+dashButton.Parent = mainGui
+MakeDraggable(dashButton, true)
+
+local dashCorner = Instance.new("UICorner")
+dashCorner.CornerRadius = UDim.new(1, 0)
+dashCorner.Parent = dashButton
+
+local dashGradient = Instance.new("UIGradient")
+dashGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 80, 80)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(140, 10, 10))
+})
+dashGradient.Rotation = 135
+dashGradient.Parent = dashButton
+
+local dashStroke = Instance.new("UIStroke")
+dashStroke.Color = Color3.fromRGB(255, 100, 100)
+dashStroke.Thickness = 3
+dashStroke.Parent = dashButton
+
+local touchMap = {}
+
+local function TryDash()
+	if not EnabledFlag then return end
+	if not Movement.IsValid() then return end
+	local target = Movement.AcquireTarget()
+	if target then
+		Movement.ExecuteDash(target)
+	end
+end
+
+dashButton.InputBegan:Connect(function(inp)
+	if inp.UserInputType == Enum.UserInputType.Touch then
+		local key = tostring(inp)
+		touchMap[key] = true
+		if next(touchMap) ~= nil and select(2,next(touchMap)) == nil then
+			UIKit.Tween:Create(dashButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 100, 100)}):Play()
+			TryDash()
+		end
+		inp.Changed:Connect(function()
+			if inp.UserInputState == Enum.UserInputState.End then
+				touchMap[key] = nil
+				if next(touchMap) == nil then
+					UIKit.Tween:Create(dashButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(200, 20, 20)}):Play()
+				end
+			end
+		end)
+	elseif inp.UserInputType == Enum.UserInputType.MouseButton1 then
+		UIKit.Tween:Create(dashButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 100, 100)}):Play()
+		TryDash()
 	end
 end)
+
+dashButton.InputEnded:Connect(function(inp)
+	if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+		if next(touchMap) == nil then
+			UIKit.Tween:Create(dashButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(200, 20, 20)}):Play()
+		end
+	end
+end)
+
+-- keyboard input
+UIKit.Input.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if not EnabledFlag then return end
+	if input.KeyCode == Enum.KeyCode.E then
+		TryDash()
+	end
+end)
+
+print("Side Dash Assist V1.0 loaded (3‑snippet build).")
 
 -- ur gay wasp
