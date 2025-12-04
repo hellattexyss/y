@@ -739,7 +739,7 @@ end
 --// DASH BUTTON - BIG WHITE ICON ASSET 12443244342
 
 local clickSnd = Instance.new("Sound")
-clickSnd.SoundId = "rbxassetid://6042053626"
+clickSnd.SoundId = ""
 clickSnd.Volume = 0.7
 clickSnd.Parent = gui
 
@@ -908,3 +908,4 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		doDashFromButton()
 	end
 end)
+
