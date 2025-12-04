@@ -1,5 +1,3 @@
---// SNIPPET 1: CPS GUI + shared state
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -18,21 +16,14 @@ player.CharacterAdded:Connect(function(newChar)
 	hum = newChar:WaitForChild("Humanoid")
 end)
 
--- HARDCODED DASH SETTINGS
-local HARDCODED_RANGE = 30
-local HARDCODED_STUDS = 8
-local HARDCODED_F_OFFSET = 3
-local HARDCODED_B_OFFSET = 3
-local HARDCODED_BASE_CD = 0.3
-local HARDCODED_SPEED_MULT = 0.8
+-- Settings
+local RANGE = 30
+local studs = 8
+local F_OFFSET = 3
+local B_OFFSET = 3
+local BASE_CD = 0.3
+local speedMult = 0.8
 local HARDCODED_DASH_COOLDOWN = 2.5
-
-local RANGE = HARDCODED_RANGE
-local studs = HARDCODED_STUDS
-local F_OFFSET = HARDCODED_F_OFFSET
-local B_OFFSET = HARDCODED_B_OFFSET
-local BASE_CD = HARDCODED_BASE_CD
-local speedMult = HARDCODED_SPEED_MULT
 
 local function getCD()
 	if speedMult <= 0.05 then
@@ -55,8 +46,9 @@ local m1On = false
 local dashKeyOn = false
 local targetNearOn = false
 local selectedPlr = nil
+local EnabledFlag = true
+local dashButtonLocked = false
 
--- NOTIFICATION + CLIPBOARD
 pcall(function()
 	StarterGui:SetCore("SendNotification", {
 		Title = "Side Dash Assist V1";
@@ -64,6 +56,7 @@ pcall(function()
 		Duration = 5;
 	})
 end)
+
 pcall(function()
 	if setclipboard then
 		setclipboard("https://discord.gg/GEVGRzC4ZP")
@@ -104,7 +97,7 @@ local function makeDraggable(guiObject)
 	end)
 end
 
--- MAIN CPS GUI
+-- Main frame
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 380, 0, 140)
@@ -116,9 +109,8 @@ mainFrame.Visible = false
 mainFrame.Parent = gui
 makeDraggable(mainFrame)
 
-local mainCorner = Instance.new("UICorner")
+local mainCorner = Instance.new("UICorner", mainFrame)
 mainCorner.CornerRadius = UDim.new(0, 20)
-mainCorner.Parent = mainFrame
 
 local mainBgGradient = Instance.new("UIGradient")
 mainBgGradient.Color = ColorSequence.new({
@@ -139,9 +131,8 @@ borderFrame.BorderSizePixel = 0
 borderFrame.ZIndex = 0
 borderFrame.Parent = mainFrame
 
-local borderCorner = Instance.new("UICorner")
+local borderCorner = Instance.new("UICorner", borderFrame)
 borderCorner.CornerRadius = UDim.new(0, 24)
-borderCorner.Parent = borderFrame
 
 local borderGradient = Instance.new("UIGradient")
 borderGradient.Color = ColorSequence.new({
@@ -180,9 +171,8 @@ versionLabel.TextSize = 13
 versionLabel.Font = Enum.Font.GothamBold
 versionLabel.Parent = headerFrame
 
-local versionCorner = Instance.new("UICorner")
+local versionCorner = Instance.new("UICorner", versionLabel)
 versionCorner.CornerRadius = UDim.new(0, 8)
-versionCorner.Parent = versionLabel
 
 local authorLabel = Instance.new("TextLabel")
 authorLabel.Size = UDim2.new(1, -40, 0, 17)
@@ -206,9 +196,9 @@ closeBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 closeBtn.TextSize = 19
 closeBtn.BorderSizePixel = 0
 closeBtn.Parent = mainFrame
-local closeBtnCorner = Instance.new("UICorner")
+
+local closeBtnCorner = Instance.new("UICorner", closeBtn)
 closeBtnCorner.CornerRadius = UDim.new(0, 10)
-closeBtnCorner.Parent = closeBtn
 
 local minimizeBtn = Instance.new("TextButton")
 minimizeBtn.Size = UDim2.new(0, 35, 0, 35)
@@ -220,9 +210,9 @@ minimizeBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 minimizeBtn.TextSize = 22
 minimizeBtn.BorderSizePixel = 0
 minimizeBtn.Parent = mainFrame
-local minimizeCorner = Instance.new("UICorner")
+
+local minimizeCorner = Instance.new("UICorner", minimizeBtn)
 minimizeCorner.CornerRadius = UDim.new(0, 10)
-minimizeCorner.Parent = minimizeBtn
 
 local buttonContainer = Instance.new("Frame")
 buttonContainer.Size = UDim2.new(0, 200, 0, 48)
@@ -248,9 +238,8 @@ buttonBg.BorderSizePixel = 0
 buttonBg.ZIndex = 1
 buttonBg.Parent = buttonContainer
 
-local buttonCorner = Instance.new("UICorner")
+local buttonCorner = Instance.new("UICorner", buttonBg)
 buttonCorner.CornerRadius = UDim.new(0, 12)
-buttonCorner.Parent = buttonBg
 
 local buttonGradient = Instance.new("UIGradient")
 buttonGradient.Color = ColorSequence.new({
@@ -260,13 +249,11 @@ buttonGradient.Color = ColorSequence.new({
 buttonGradient.Rotation = 90
 buttonGradient.Parent = buttonBg
 
-local buttonBorder = Instance.new("UIStroke")
+local buttonBorder = Instance.new("UIStroke", buttonBg)
 buttonBorder.Color = Color3.fromRGB(255, 0, 0)
 buttonBorder.Thickness = 2
 buttonBorder.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-buttonBorder.Parent = buttonBg
 
-local EnabledFlag = true
 local function updateToggle()
 	if EnabledFlag then
 		toggleButton.Text = "Enabled: ON"
@@ -278,16 +265,118 @@ local function updateToggle()
 		TweenService:Create(buttonBorder, TweenInfo.new(0.25), {Color = Color3.fromRGB(110, 110, 110)}):Play()
 	end
 end
+
 toggleButton.MouseButton1Click:Connect(function()
 	EnabledFlag = not EnabledFlag
 	updateToggle()
 end)
+
 updateToggle()
 
--- settings overlay etc omitted here for brevity in this snippet:
--- (keep your previous settings overlay, key info etc exactly as you had)
+-- Settings Overlay
+local settingsBtn = Instance.new("TextButton")
+settingsBtn.Size = UDim2.new(0, 36, 0, 36)
+settingsBtn.Position = UDim2.new(0, 10, 1, -46)
+settingsBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+settingsBtn.Text = "⚙"
+settingsBtn.Font = Enum.Font.GothamBold
+settingsBtn.TextColor3 = Color3.fromRGB(0,0,0)
+settingsBtn.TextSize = 19
+settingsBtn.BorderSizePixel = 0
+settingsBtn.Parent = mainFrame
+local settingsBtnCorner = Instance.new("UICorner", settingsBtn)
+settingsBtnCorner.CornerRadius = UDim.new(1, 0)
 
--- OPEN GUI BUTTON
+local settingsOverlay = Instance.new("Frame")
+settingsOverlay.Name = "SettingsOverlay"
+settingsOverlay.Size = UDim2.new(0, 300, 0, 190)
+settingsOverlay.Position = UDim2.new(0, 40, 0.2, 0)
+settingsOverlay.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+settingsOverlay.BackgroundTransparency = 1
+settingsOverlay.BorderSizePixel = 0
+settingsOverlay.Visible = false
+settingsOverlay.Parent = gui
+makeDraggable(settingsOverlay)
+
+local overlayCorner = Instance.new("UICorner", settingsOverlay)
+overlayCorner.CornerRadius = UDim.new(0, 19)
+
+local overlayGradient = Instance.new("UIGradient", settingsOverlay)
+overlayGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 5, 5)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 15, 15)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+})
+overlayGradient.Rotation = 90
+
+local settingsTitle = Instance.new("TextLabel")
+settingsTitle.Size = UDim2.new(1, -60, 0, 40)
+settingsTitle.Position = UDim2.new(0, 16, 0, 5)
+settingsTitle.BackgroundTransparency = 1
+settingsTitle.Text = "Settings"
+settingsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+settingsTitle.TextSize = 21
+settingsTitle.Font = Enum.Font.GothamBold
+settingsTitle.TextXAlignment = Enum.TextXAlignment.Left
+settingsTitle.Parent = settingsOverlay
+
+local settingsCloseBtn = Instance.new("TextButton")
+settingsCloseBtn.Size = UDim2.new(0, 35, 0, 35)
+settingsCloseBtn.Position = UDim2.new(1, -45, 0, 6)
+settingsCloseBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+settingsCloseBtn.Text = "X"
+settingsCloseBtn.Font = Enum.Font.GothamBold
+settingsCloseBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+settingsCloseBtn.TextSize = 19
+settingsCloseBtn.BorderSizePixel = 0
+settingsCloseBtn.Parent = settingsOverlay
+local settingsCloseCorner = Instance.new("UICorner", settingsCloseBtn)
+settingsCloseCorner.CornerRadius = UDim.new(0, 10)
+
+local comingSoon = Instance.new("TextLabel")
+comingSoon.Size = UDim2.new(1, 0, 0, 40)
+comingSoon.Position = UDim2.new(0, 0, 0, 52)
+comingSoon.BackgroundTransparency = 1
+comingSoon.Text = "COMING SOON!..."
+comingSoon.TextColor3 = Color3.fromRGB(255, 60, 60)
+comingSoon.TextSize = 22
+comingSoon.Font = Enum.Font.GothamBold
+comingSoon.TextXAlignment = Enum.TextXAlignment.Center
+comingSoon.Parent = settingsOverlay
+
+local keybindFrame = Instance.new("Frame")
+keybindFrame.Size = UDim2.new(1, -32, 0, 90)
+keybindFrame.Position = UDim2.new(0, 16, 0, 98)
+keybindFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+keybindFrame.BorderSizePixel = 0
+keybindFrame.Parent = settingsOverlay
+
+local keybindCorner = Instance.new("UICorner", keybindFrame)
+keybindCorner.CornerRadius = UDim.new(0, 14)
+
+local keyTitle = Instance.new("TextLabel")
+keyTitle.Size = UDim2.new(1, -20, 0, 24)
+keyTitle.Position = UDim2.new(0, 10, 0, 8)
+keyTitle.BackgroundTransparency = 1
+keyTitle.Text = "Keybind Info"
+keyTitle.TextColor3 = Color3.fromRGB(230, 230, 230)
+keyTitle.TextSize = 18
+keyTitle.Font = Enum.Font.GothamBold
+keyTitle.TextXAlignment = Enum.TextXAlignment.Left
+keyTitle.Parent = keybindFrame
+
+local keyInfo = Instance.new("TextLabel")
+keyInfo.Size = UDim2.new(1, -20, 0, 24)
+keyInfo.Position = UDim2.new(0, 10, 0, 40)
+keyInfo.BackgroundTransparency = 1
+keyInfo.Text = "PC Keybind: E | Gamepad: DPad Up"
+keyInfo.TextColor3 = Color3.fromRGB(205, 205, 205)
+keyInfo.TextSize = 16
+keyInfo.Font = Enum.Font.Gotham
+keyInfo.TextXAlignment = Enum.TextXAlignment.Left
+keyInfo.Parent = keybindFrame
+
+-- Open/Close GUI buttons
 local openButton = Instance.new("TextButton")
 openButton.Name = "OpenGuiButton"
 openButton.Size = UDim2.new(0, 90, 0, 34)
@@ -300,12 +389,10 @@ openButton.Font = Enum.Font.GothamBold
 openButton.BorderSizePixel = 0
 openButton.Visible = false
 openButton.Parent = gui
-local openCorner = Instance.new("UICorner")
+local openCorner = Instance.new("UICorner", openButton)
 openCorner.CornerRadius = UDim.new(0, 10)
-openCorner.Parent = openButton
 makeDraggable(openButton)
 
--- LOCK BUTTON (SAME STYLE AS OPEN)
 local lockButton = Instance.new("TextButton")
 lockButton.Name = "LockButton"
 lockButton.Size = UDim2.new(0, 90, 0, 34)
@@ -318,12 +405,9 @@ lockButton.Font = Enum.Font.GothamBold
 lockButton.BorderSizePixel = 0
 lockButton.Visible = false
 lockButton.Parent = gui
-local lockCorner = Instance.new("UICorner")
+local lockCorner = Instance.new("UICorner", lockButton)
 lockCorner.CornerRadius = UDim.new(0, 10)
-lockCorner.Parent = lockButton
 makeDraggable(lockButton)
-
-local dashButtonLocked = false
 
 local function notify(text)
 	pcall(function()
@@ -346,71 +430,54 @@ lockButton.MouseButton1Click:Connect(function()
 	end
 end)
 
-local function setMainTransparency(alpha)
-	mainFrame.BackgroundTransparency = alpha
-	borderFrame.BackgroundTransparency = alpha
-	titleLabel.TextTransparency = alpha
-	authorLabel.TextTransparency = 0.28 + (alpha * 0.7)
-	versionLabel.TextTransparency = alpha
-	toggleButton.TextTransparency = alpha
-	closeBtn.TextTransparency = alpha
-	minimizeBtn.TextTransparency = alpha
-end
-
-local function fadeInMain()
-	mainFrame.Visible = true
-	setMainTransparency(1)
-	TweenService:Create(blur, TweenInfo.new(0.3), {Size = 12}):Play()
-	TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
-	TweenService:Create(borderFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
-	TweenService:Create(titleLabel, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-	TweenService:Create(authorLabel, TweenInfo.new(0.3), {TextTransparency = 0.28}):Play()
-	TweenService:Create(versionLabel, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-	TweenService:Create(toggleButton, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-	TweenService:Create(closeBtn, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-	TweenService:Create(minimizeBtn, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
-end
-
-local function fadeOutMain(callback)
-	local t1 = TweenService:Create(blur, TweenInfo.new(0.3), {Size = 0})
-	local t3 = TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 1})
-	local t4 = TweenService:Create(borderFrame, TweenInfo.new(0.3), {BackgroundTransparency = 1})
-	local t5 = TweenService:Create(titleLabel, TweenInfo.new(0.3), {TextTransparency = 1})
-	local t6 = TweenService:Create(authorLabel, TweenInfo.new(0.3), {TextTransparency = 1})
-	local t7 = TweenService:Create(versionLabel, TweenInfo.new(0.3), {TextTransparency = 1})
-	local t8 = TweenService:Create(toggleButton, TweenInfo.new(0.3), {TextTransparency = 1})
-	local t9 = TweenService:Create(closeBtn, TweenInfo.new(0.3), {TextTransparency = 1})
-	local t10 = TweenService:Create(minimizeBtn, TweenInfo.new(0.3), {TextTransparency = 1})
-	t1:Play() t3:Play() t4:Play()
-	t5:Play() t6:Play() t7:Play()
-	t8:Play() t9:Play() t10:Play()
-	t4.Completed:Connect(function()
-		mainFrame.Visible = false
-		if callback then callback() end
-	end)
-end
-
 closeBtn.MouseButton1Click:Connect(function()
-	fadeOutMain()
+	TweenService:Create(blur, TweenInfo.new(0.3), {Size = 0}):Play()
+	TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+	TweenService:Create(borderFrame, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+	wait(0.3)
+	mainFrame.Visible = false
+	openButton.Visible = true
+	lockButton.Visible = true
 end)
 
 minimizeBtn.MouseButton1Click:Connect(function()
-	fadeOutMain(function()
-		openButton.Visible = true
-		lockButton.Visible = true
-	end)
+	TweenService:Create(blur, TweenInfo.new(0.3), {Size = 0}):Play()
+	TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+	TweenService:Create(borderFrame, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+	wait(0.3)
+	mainFrame.Visible = false
+	openButton.Visible = true
+	lockButton.Visible = true
 end)
 
 openButton.MouseButton1Click:Connect(function()
 	openButton.Visible = false
 	lockButton.Visible = false
-	fadeInMain()
+	mainFrame.Visible = true
+	TweenService:Create(blur, TweenInfo.new(0.3), {Size = 12}):Play()
+	TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
+	TweenService:Create(borderFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
 end)
 
-fadeInMain()
+settingsBtn.MouseButton1Click:Connect(function()
+	settingsOverlay.Visible = true
+	TweenService:Create(settingsOverlay, TweenInfo.new(0.25), {BackgroundTransparency = 0}):Play()
+end)
 
--- END SNIPPET 1
---// SNIPPET 2: dash core logic (kept same movement, added cooldown & E key)
+settingsCloseBtn.MouseButton1Click:Connect(function()
+	local t = TweenService:Create(settingsOverlay, TweenInfo.new(0.25), {BackgroundTransparency = 1})
+	t:Play()
+	t.Completed:Connect(function()
+		settingsOverlay.Visible = false
+	end)
+end)
+
+mainFrame.Visible = true
+TweenService:Create(blur, TweenInfo.new(0.3), {Size = 12}):Play()
+TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
+TweenService:Create(borderFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
+
+--// DASH LOGIC
 
 local function getEvent()
 	local c = player.Character or player.CharacterAdded:Wait()
@@ -433,7 +500,7 @@ local function sendDash()
 	fireEvent({
 		[1] = {
 			Dash = Enum.KeyCode.W,
-			Key = Enum.KeyCode.E, -- PC keybind E
+			Key = Enum.KeyCode.E,
 			Goal = "KeyPress",
 		},
 	})
@@ -750,19 +817,18 @@ local function dash(target)
 	return true
 end
 
--- END SNIPPET 2
---// SNIPPET 3: REPLACE THE OLD dashBtn BLOCK WITH THIS
+--// DASH BUTTON + SETTINGS + ESP + TOGGLES
 
 local clickSnd = Instance.new("Sound")
 clickSnd.SoundId = "rbxassetid://6042053626"
 clickSnd.Volume = 0.7
 clickSnd.Parent = gui
 
--- RED CIRCULAR GRADIENT IMAGEBUTTON ON LEFT
+-- RED CIRCULAR DASH BUTTON WITH ICONS
 local dashBtn = Instance.new("ImageButton")
-dashBtn.Name = "DashButton_Merged"
+dashBtn.Name = "DashButton_Final"
 dashBtn.Size = UDim2.new(0, 110, 0, 110)
-dashBtn.Position = UDim2.new(0, 15, 0.5, -55) -- left side
+dashBtn.Position = UDim2.new(0, 15, 0.5, -55)
 dashBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 dashBtn.BorderSizePixel = 0
 dashBtn.BackgroundTransparency = 0
@@ -770,9 +836,8 @@ dashBtn.AutoButtonColor = false
 dashBtn.Parent = gui
 dashBtn.Active = true
 
-local round = Instance.new("UICorner")
+local round = Instance.new("UICorner", dashBtn)
 round.CornerRadius = UDim.new(1, 0)
-round.Parent = dashBtn
 
 local grad = Instance.new("UIGradient")
 grad.Color = ColorSequence.new({
@@ -783,16 +848,21 @@ grad.Color = ColorSequence.new({
 grad.Rotation = 45
 grad.Parent = dashBtn
 
--- icon in center
-local icon = Instance.new("ImageLabel")
-icon.BackgroundTransparency = 1
-icon.Size = UDim2.new(0, 70, 0, 70)
-icon.Position = UDim2.new(0.5, -35, 0.5, -35)
-icon.Image = "rbxassetid://110530089410634"
-icon.Parent = dashBtn
+-- Bottom icon
+local icon1 = Instance.new("ImageLabel")
+icon1.BackgroundTransparency = 1
+icon1.Size = UDim2.new(0, 60, 0, 60)
+icon1.Position = UDim2.new(0.5, -30, 0.5, -20)
+icon1.Image = "rbxassetid://110530089410634"
+icon1.Parent = dashBtn
 
-local btnScale = Instance.new("UIScale", dashBtn)
-btnScale.Scale = 1
+-- Top icon (your custom one)
+local icon2 = Instance.new("ImageLabel")
+icon2.BackgroundTransparency = 1
+icon2.Size = UDim2.new(0, 38, 0, 38)
+icon2.Position = UDim2.new(0.5, -19, 0, 6)
+icon2.Image = "rbxassetid://12443244342"
+icon2.Parent = dashBtn
 
 local pressSnd = Instance.new("Sound")
 pressSnd.Name = "PressSFX"
@@ -808,38 +878,11 @@ local btnStart = nil
 local dragIn = nil
 local DRAG_THRESH = 8
 
-local lighter = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 140, 140)),
-	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(240, 60, 60)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(190, 0, 0))
-})
-local normal = grad.Color
-
-local function tweenScale(target, dur)
-	dur = dur or 0.06
-	local ok, t = pcall(function()
-		return TweenService:Create(btnScale, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Scale = target,
-		})
-	end)
-	if ok and t then t:Play() end
-end
-
-local function tweenGrad(cs, dur)
-	dur = dur or 0.08
-	local ok, t = pcall(function()
-		return TweenService:Create(grad, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Color = cs,
-		})
-	end)
-	if ok and t then t:Play() end
-end
-
 local function doDashFromButton()
 	if dashing or not EnabledFlag then
 		return
 	end
-	local t
+	local t = nil
 	if selectedPlr and selectedPlr.Character and selectedPlr.Character:FindFirstChild("HumanoidRootPart") then
 		t = selectedPlr.Character
 	elseif targetNearOn then
@@ -869,7 +912,6 @@ local function doDashFromButton()
 end
 
 local function onInputStart(input)
-	if dashButtonLocked then return end
 	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
 		pressed = true
 		dragging = false
@@ -877,37 +919,29 @@ local function onInputStart(input)
 		btnStart = dashBtn.Position
 		dragIn = input
 
-		tweenScale(0.92, 0.06)
-		tweenGrad(lighter, 0.08)
-		pcall(function()
-			pressSnd:Play()
-		end)
 		input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
 				pressed = false
 				dragIn = nil
 				dragStart = nil
 				btnStart = nil
-				tweenScale(1, 0.06)
-				tweenGrad(normal, 0.08)
 			end
 		end)
 	end
 end
 
 local function onInputChange(input)
-	if dashButtonLocked then return end
 	if not pressed or not dragStart or input ~= dragIn then
 		return
 	end
 
 	local delta = input.Position - dragStart
 	if not dragging and delta.Magnitude >= DRAG_THRESH then
+		if dashButtonLocked then return end
 		dragging = true
-		tweenScale(1, 0.06)
 	end
 
-	if dragging then
+	if dragging and not dashButtonLocked then
 		local view = Workspace.CurrentCamera.ViewportSize
 		dashBtn.Position = UDim2.new(
 			0,
@@ -933,9 +967,6 @@ UserInputService.InputEnded:Connect(function(input)
 		doDashFromButton()
 	end
 
-	tweenScale(1, 0.06)
-	tweenGrad(normal, 0.08)
-
 	pressed = false
 	dragging = false
 	dragIn = nil
@@ -949,7 +980,10 @@ dashBtn.InputBegan:Connect(function(input)
 	end)
 end)
 
--- PC keybind E + gamepad dash (kept)
+dashBtn.MouseButton1Click:Connect(function()
+	doDashFromButton()
+end)
+
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed or dashing or not EnabledFlag then
 		return
@@ -963,4 +997,442 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	end
 end)
 
--- END SNIPPET 3
+-- SETTINGS TOGGLES
+local espFolder = Instance.new("Folder", gui)
+espFolder.Name = "ESPFolder"
+
+local function clearESP()
+	for _, obj in ipairs(espFolder:GetChildren()) do
+		obj:Destroy()
+	end
+end
+
+local function makeESP(target)
+	clearESP()
+	if not target or not target.Parent then
+		return
+	end
+
+	local rootPart = target:FindFirstChild("HumanoidRootPart") or target.PrimaryPart or target:FindFirstChildWhichIsA("BasePart")
+	if not rootPart then
+		return
+	end
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.new(0, 120, 0, 40)
+	billboard.Adornee = rootPart
+	billboard.AlwaysOnTop = true
+	billboard.Parent = espFolder
+	billboard.StudsOffset = Vector3.new(0, 4, 0)
+
+	local bg = Instance.new("Frame")
+	bg.Size = UDim2.new(1, 0, 1, 0)
+	bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	bg.BackgroundTransparency = 0.2
+	bg.BorderSizePixel = 0
+	bg.Parent = billboard
+
+	local bgCorner = Instance.new("UICorner", bg)
+	bgCorner.CornerRadius = UDim.new(0, 6)
+
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.new(1, 0, 1, 0)
+	text.BackgroundTransparency = 1
+	text.Text = target.Name or "Target"
+	text.Font = Enum.Font.GothamBold
+	text.TextSize = 16
+	text.TextColor3 = Color3.fromRGB(255, 255, 255)
+	text.TextStrokeTransparency = 0.5
+	text.TextScaled = false
+	text.Parent = billboard
+end
+
+local togglesFrame = Instance.new("Frame")
+togglesFrame.Size = UDim2.new(1, -20, 0, 90)
+togglesFrame.Position = UDim2.new(0, 10, 0, 50)
+togglesFrame.BackgroundTransparency = 1
+togglesFrame.Parent = mainFrame
+
+local grid = Instance.new("UIGridLayout")
+grid.CellSize = UDim2.new(0.5, -10, 0, 35)
+grid.CellPadding = UDim2.new(0, 10, 0, 10)
+grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+grid.VerticalAlignment = Enum.VerticalAlignment.Top
+grid.Parent = togglesFrame
+
+local function addToggle(name, callback)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, 100, 0, 35)
+	btn.BackgroundColor3 = Color3.fromRGB(245, 245, 245)
+	btn.Text = name
+	btn.TextColor3 = Color3.fromRGB(0, 0, 0)
+	btn.Font = Enum.Font.Gotham
+	btn.TextSize = 14
+	btn.AutoButtonColor = false
+	btn.Parent = togglesFrame
+
+	local btnCorner = Instance.new("UICorner", btn)
+	btnCorner.CornerRadius = UDim.new(0, 8)
+
+	local ind = Instance.new("Frame")
+	ind.Size = UDim2.new(0, 15, 0, 15)
+	ind.Position = UDim2.new(1, -24, 0.5, -7)
+	ind.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
+	ind.Parent = btn
+
+	local indCorner = Instance.new("UICorner", ind)
+	indCorner.CornerRadius = UDim.new(1, 0)
+
+	local on = false
+
+	btn.MouseButton1Click:Connect(function()
+		clickSnd:Play()
+		on = not on
+
+		TweenService:Create(ind, TweenInfo.new(0.16), {
+			BackgroundColor3 = on and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(180, 180, 180),
+		}):Play()
+
+		if callback then
+			callback(on)
+		end
+	end)
+
+	return btn
+end
+
+addToggle("Target Near", function(on)
+	targetNearOn = on
+	if on then
+		selectedPlr = nil
+		if espOn and root then
+			local near = findTarget(RANGE)
+			if near then
+				makeESP(near)
+			end
+		else
+			clearESP()
+		end
+	else
+		clearESP()
+	end
+end)
+
+addToggle("M1", function(on)
+	m1On = on
+end)
+
+addToggle("Dash", function(on)
+	dashKeyOn = on
+end)
+
+addToggle("ESP", function(on)
+	espOn = on
+	if not on then
+		clearESP()
+	else
+		local t = nil
+		if selectedPlr and selectedPlr.Character then
+			t = selectedPlr.Character
+		elseif targetNearOn then
+			t = findTarget(RANGE)
+		end
+
+		if t then
+			makeESP(t)
+		end
+	end
+end)
+
+-- PLAYER LIST
+local plrFrame = Instance.new("ScrollingFrame")
+plrFrame.Size = UDim2.new(1, -20, 0, 70)
+plrFrame.Position = UDim2.new(0, 10, 0, 145)
+plrFrame.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
+plrFrame.ScrollBarThickness = 4
+plrFrame.Parent = mainFrame
+
+local listCorner = Instance.new("UICorner", plrFrame)
+listCorner.CornerRadius = UDim.new(0, 8)
+
+local plrLayout = Instance.new("UIListLayout")
+plrLayout.Parent = plrFrame
+plrLayout.Padding = UDim.new(0, 2)
+
+local function refreshList()
+	for _, obj in ipairs(plrFrame:GetChildren()) do
+		if obj:IsA("TextButton") then
+			obj:Destroy()
+		end
+	end
+
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= player then
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(1, -5, 0, 22)
+			btn.BackgroundColor3 = Color3.fromRGB(235, 235, 235)
+			btn.TextColor3 = Color3.fromRGB(0, 0, 0)
+			btn.TextXAlignment = Enum.TextXAlignment.Left
+			btn.TextSize = 14
+			btn.Font = Enum.Font.Gotham
+			btn.Text = "   " .. plr.Name
+			btn.Parent = plrFrame
+
+			local btnCorner = Instance.new("UICorner", btn)
+			btnCorner.CornerRadius = UDim.new(0, 6)
+
+			btn.MouseButton1Click:Connect(function()
+				clickSnd:Play()
+
+				for _, other in ipairs(plrFrame:GetChildren()) do
+					if other:IsA("TextButton") then
+						other.BackgroundColor3 = Color3.fromRGB(235, 235, 235)
+					end
+				end
+
+				btn.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
+				selectedPlr = plr
+				targetNearOn = false
+
+				if espOn and plr.Character then
+					makeESP(plr.Character)
+				end
+
+				print("Selected player:", plr.Name)
+			end)
+		end
+	end
+end
+
+refreshList()
+
+local refreshBtn = Instance.new("TextButton")
+refreshBtn.Size = UDim2.new(0, 90, 0, 28)
+refreshBtn.Position = UDim2.new(1, -100, 1, -35)
+refreshBtn.BackgroundColor3 = Color3.fromRGB(90, 90, 90)
+refreshBtn.Text = "Refresh"
+refreshBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+refreshBtn.Font = Enum.Font.GothamBold
+refreshBtn.TextSize = 14
+refreshBtn.Parent = mainFrame
+
+local refreshCorner = Instance.new("UICorner", refreshBtn)
+refreshCorner.CornerRadius = UDim.new(0, 8)
+
+refreshBtn.MouseButton1Click:Connect(function()
+	clickSnd:Play()
+	refreshList()
+end)
+
+local adjustBtn = Instance.new("TextButton")
+adjustBtn.Size = UDim2.new(0, 80, 0, 28)
+adjustBtn.Position = UDim2.new(0, 10, 1, -35)
+adjustBtn.BackgroundColor3 = Color3.fromRGB(110, 110, 110)
+adjustBtn.Text = "Adjust"
+adjustBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+adjustBtn.Font = Enum.Font.GothamBold
+adjustBtn.TextSize = 14
+adjustBtn.Parent = mainFrame
+
+local adjustCorner = Instance.new("UICorner", adjustBtn)
+adjustCorner.CornerRadius = UDim.new(0, 8)
+
+local adjustMenu = nil
+
+local function makeAdjustMenu()
+	if adjustMenu and adjustMenu.Parent then
+		return
+	end
+
+	adjustMenu = Instance.new("Frame")
+	adjustMenu.Name = "AdjustMiniMenu"
+	adjustMenu.Size = UDim2.new(0, 260, 0, 120)
+	adjustMenu.Position = UDim2.new(0.5, -130, 0.5, -60)
+	adjustMenu.BackgroundColor3 = Color3.fromRGB(245, 245, 245)
+	adjustMenu.BorderSizePixel = 2
+	adjustMenu.Parent = gui
+
+	local adjCorner = Instance.new("UICorner", adjustMenu)
+	adjCorner.CornerRadius = UDim.new(0, 12)
+
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(1, 0, 0, 30)
+	title.Position = UDim2.new(0, 0, 0, 8)
+	title.BackgroundTransparency = 1
+	title.Text = "Adjust Settings"
+	title.Font = Enum.Font.GothamBold
+	title.TextSize = 18
+	title.TextColor3 = Color3.fromRGB(25, 25, 25)
+	title.Parent = adjustMenu
+
+	local studsLabel = Instance.new("TextLabel")
+	studsLabel.Size = UDim2.new(0, 70, 0, 28)
+	studsLabel.Position = UDim2.new(0, 12, 0, 46)
+	studsLabel.BackgroundTransparency = 1
+	studsLabel.Text = "Studs"
+	studsLabel.Font = Enum.Font.Gotham
+	studsLabel.TextSize = 16
+	studsLabel.TextColor3 = Color3.fromRGB(25, 25, 25)
+	studsLabel.TextXAlignment = Enum.TextXAlignment.Left
+	studsLabel.Parent = adjustMenu
+
+	local studsVal = Instance.new("TextLabel")
+	studsVal.Size = UDim2.new(0, 50, 0, 28)
+	studsVal.Position = UDim2.new(0, 110, 0, 46)
+	studsVal.BackgroundTransparency = 1
+	studsVal.Text = tostring(studs)
+	studsVal.Font = Enum.Font.GothamBold
+	studsVal.TextSize = 16
+	studsVal.TextColor3 = Color3.fromRGB(25, 25, 25)
+	studsVal.TextXAlignment = Enum.TextXAlignment.Center
+	studsVal.Parent = adjustMenu
+
+	local studsMinus = Instance.new("TextButton")
+	studsMinus.Size = UDim2.new(0, 32, 0, 32)
+	studsMinus.Position = UDim2.new(0, 170, 0, 44)
+	studsMinus.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
+	studsMinus.Text = "-"
+	studsMinus.Font = Enum.Font.GothamBold
+	studsMinus.TextSize = 20
+	studsMinus.TextColor3 = Color3.fromRGB(255, 255, 255)
+	studsMinus.Parent = adjustMenu
+
+	local studsMinusCorner = Instance.new("UICorner", studsMinus)
+	studsMinusCorner.CornerRadius = UDim.new(0, 8)
+
+	local studsPlus = Instance.new("TextButton")
+	studsPlus.Size = UDim2.new(0, 32, 0, 32)
+	studsPlus.Position = UDim2.new(0, 210, 0, 44)
+	studsPlus.BackgroundColor3 = Color3.fromRGB(80, 200, 100)
+	studsPlus.Text = "+"
+	studsPlus.Font = Enum.Font.GothamBold
+	studsPlus.TextSize = 20
+	studsPlus.TextColor3 = Color3.fromRGB(255, 255, 255)
+	studsPlus.Parent = adjustMenu
+
+	local studsPlusCorner = Instance.new("UICorner", studsPlus)
+	studsPlusCorner.CornerRadius = UDim.new(0, 8)
+
+	local speedLabel = Instance.new("TextLabel")
+	speedLabel.Size = UDim2.new(0, 70, 0, 28)
+	speedLabel.Position = UDim2.new(0, 12, 0, 82)
+	speedLabel.BackgroundTransparency = 1
+	speedLabel.Text = "Speed"
+	speedLabel.Font = Enum.Font.Gotham
+	speedLabel.TextSize = 16
+	speedLabel.TextColor3 = Color3.fromRGB(25, 25, 25)
+	speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+	speedLabel.Parent = adjustMenu
+
+	local speedVal = Instance.new("TextLabel")
+	speedVal.Size = UDim2.new(0, 50, 0, 28)
+	speedVal.Position = UDim2.new(0, 110, 0, 82)
+	speedVal.BackgroundTransparency = 1
+	speedVal.Text = string.format("%.1f", speedMult)
+	speedVal.Font = Enum.Font.GothamBold
+	speedVal.TextSize = 16
+	speedVal.TextColor3 = Color3.fromRGB(25, 25, 25)
+	speedVal.TextXAlignment = Enum.TextXAlignment.Center
+	speedVal.Parent = adjustMenu
+
+	local speedMinus = Instance.new("TextButton")
+	speedMinus.Size = UDim2.new(0, 32, 0, 32)
+	speedMinus.Position = UDim2.new(0, 170, 0, 80)
+	speedMinus.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
+	speedMinus.Text = "-"
+	speedMinus.Font = Enum.Font.GothamBold
+	speedMinus.TextSize = 20
+	speedMinus.TextColor3 = Color3.fromRGB(255, 255, 255)
+	speedMinus.Parent = adjustMenu
+
+	local speedMinusCorner = Instance.new("UICorner", speedMinus)
+	speedMinusCorner.CornerRadius = UDim.new(0, 8)
+
+	local speedPlus = Instance.new("TextButton")
+	speedPlus.Size = UDim2.new(0, 32, 0, 32)
+	speedPlus.Position = UDim2.new(0, 210, 0, 80)
+	speedPlus.BackgroundColor3 = Color3.fromRGB(80, 200, 100)
+	speedPlus.Text = "+"
+	speedPlus.Font = Enum.Font.GothamBold
+	speedPlus.TextSize = 20
+	speedPlus.TextColor3 = Color3.fromRGB(255, 255, 255)
+	speedPlus.Parent = adjustMenu
+
+	local speedPlusCorner = Instance.new("UICorner", speedPlus)
+	speedPlusCorner.CornerRadius = UDim.new(0, 8)
+
+	studsMinus.MouseButton1Click:Connect(function()
+		studs = math.max(0.5, studs - 1)
+		studsVal.Text = tostring(studs)
+	end)
+
+	studsPlus.MouseButton1Click:Connect(function()
+		studs = math.min(40, studs + 1)
+		studsVal.Text = tostring(studs)
+	end)
+
+	speedMinus.MouseButton1Click:Connect(function()
+		speedMult = math.max(0.1, math.floor(((speedMult - 0.1) * 10 + 0.5)) / 10)
+		speedVal.Text = string.format("%.1f", speedMult)
+	end)
+
+	speedPlus.MouseButton1Click:Connect(function()
+		speedMult = math.min(5, math.floor(((speedMult + 0.1) * 10 + 0.5)) / 10)
+		speedVal.Text = string.format("%.1f", speedMult)
+	end)
+
+	makeDraggable(adjustMenu)
+
+	local closeBtn = Instance.new("TextButton")
+	closeBtn.Size = UDim2.new(0, 22, 0, 22)
+	closeBtn.Position = UDim2.new(1, -26, 0, 6)
+	closeBtn.Text = "x"
+	closeBtn.Font = Enum.Font.GothamBold
+	closeBtn.TextSize = 14
+	closeBtn.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
+	closeBtn.Parent = adjustMenu
+
+	local closeBtnCorner = Instance.new("UICorner", closeBtn)
+	closeBtnCorner.CornerRadius = UDim.new(0, 6)
+
+	closeBtn.MouseButton1Click:Connect(function()
+		if adjustMenu and adjustMenu.Parent then
+			adjustMenu:Destroy()
+			adjustMenu = nil
+		end
+	end)
+end
+
+adjustBtn.MouseButton1Click:Connect(function()
+	clickSnd:Play()
+	if not adjustMenu or not adjustMenu.Parent then
+		makeAdjustMenu()
+	else
+		adjustMenu:Destroy()
+		adjustMenu = nil
+	end
+end)
+
+Players.PlayerAdded:Connect(refreshList)
+Players.PlayerRemoving:Connect(refreshList)
+
+RunService.Heartbeat:Connect(function()
+	if not espOn then
+		return
+	end
+
+	local t = nil
+	if selectedPlr and selectedPlr.Character and selectedPlr.Character:FindFirstChild("HumanoidRootPart") then
+		t = selectedPlr.Character
+	elseif targetNearOn then
+		t = findTarget(RANGE)
+	end
+
+	if t then
+		makeESP(t)
+	else
+		clearESP()
+	end
+end)
+
+print("[Dashboard] All systems loaded and ready!")
