@@ -61,7 +61,10 @@ local HARDCODED_F_OFFSET = 3
 local HARDCODED_B_OFFSET = 3
 local HARDCODED_BASE_CD = 0.3
 local HARDCODED_SPEED_MULT = 0.8
-local HARDCODED_DASH_COOLDOWN = 2.5 -- NEW 2.5 SECOND COOLDOWN FOR SIDE DASH
+local HARDCODED_DASH_COOLDOWN = 2.5
+
+-- DASH BUTTON LOCK STATE
+local dashButtonLocked = false
 
 -- MAIN FRAME
 local mainFrame = Instance.new("Frame")
@@ -262,7 +265,7 @@ local settingsBtnCorner = Instance.new("UICorner")
 settingsBtnCorner.CornerRadius = UDim.new(1, 0)
 settingsBtnCorner.Parent = settingsBtn
 
--- SETTINGS OVERLAY (smaller, left side)
+-- SETTINGS OVERLAY
 local settingsOverlay = Instance.new("Frame")
 settingsOverlay.Name = "SettingsOverlay"
 settingsOverlay.Size = UDim2.new(0, 300, 0, 190)
@@ -374,11 +377,46 @@ openCorner.CornerRadius = UDim.new(0, 10)
 openCorner.Parent = openButton
 makeDraggable(openButton)
 
+-- LOCK BUTTON (NEXT TO OPEN GUI)
+local lockButton = Instance.new("TextButton")
+lockButton.Name = "LockButton"
+lockButton.Size = UDim2.new(0, 90, 0, 34)
+lockButton.Position = UDim2.new(0, 10, 0.5, 20)
+lockButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+lockButton.Text = "🔓 Unlock"
+lockButton.TextColor3 = Color3.fromRGB(255,255,255)
+lockButton.TextSize = 13
+lockButton.Font = Enum.Font.GothamBold
+lockButton.BorderSizePixel = 0
+lockButton.Visible = false
+lockButton.Parent = gui
+local lockCorner = Instance.new("UICorner")
+lockCorner.CornerRadius = UDim.new(0, 10)
+lockCorner.Parent = lockButton
+
+lockButton.MouseButton1Click:Connect(function()
+	dashButtonLocked = not dashButtonLocked
+	if dashButtonLocked then
+		lockButton.Text = "🔒 Locked"
+		starterGui:SetCore("SendNotification", {
+			Title = "Dash Button";
+			Text = "Dash button is now LOCKED";
+			Duration = 2;
+		})
+	else
+		lockButton.Text = "🔓 Unlock"
+		starterGui:SetCore("SendNotification", {
+			Title = "Dash Button";
+			Text = "Dash button is now UNLOCKED";
+			Duration = 2;
+		})
+	end
+end)
+
 -- HELPERS: tween text + frame transparency together
 local function setMainTransparency(alpha)
 	mainFrame.BackgroundTransparency = alpha
 	borderFrame.BackgroundTransparency = alpha
-
 	titleLabel.TextTransparency = alpha
 	authorLabel.TextTransparency = 0.28 + (alpha * 0.7)
 	versionLabel.TextTransparency = alpha
@@ -392,7 +430,6 @@ end
 local function fadeInMain()
 	mainFrame.Visible = true
 	setMainTransparency(1)
-
 	tween:Create(blur, TweenInfo.new(0.3), {Size = 12}):Play()
 	tween:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
 	tween:Create(borderFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
@@ -417,11 +454,9 @@ local function fadeOutMain(callback)
 	local t9 = tween:Create(closeBtn, TweenInfo.new(0.3), {TextTransparency = 1})
 	local t10 = tween:Create(minimizeBtn, TweenInfo.new(0.3), {TextTransparency = 1})
 	local t11 = tween:Create(settingsBtn, TweenInfo.new(0.3), {TextTransparency = 1})
-
 	t1:Play() t3:Play() t4:Play()
 	t5:Play() t6:Play() t7:Play()
 	t8:Play() t9:Play() t10:Play() t11:Play()
-
 	t4.Completed:Connect(function()
 		mainFrame.Visible = false
 		if callback then callback() end
@@ -451,11 +486,13 @@ end)
 minimizeBtn.MouseButton1Click:Connect(function()
 	fadeOutMain(function()
 		openButton.Visible = true
+		lockButton.Visible = true
 	end)
 end)
 
 openButton.MouseButton1Click:Connect(function()
 	openButton.Visible = false
+	lockButton.Visible = false
 	fadeInMain()
 end)
 
@@ -470,7 +507,221 @@ end)
 -- INITIAL FADE IN
 fadeInMain()
 
--- END SNIPPET 1 - GUI SETUP COMPLETE
+-- END SNIPPET 1 - GUI SETUP & LOCK BUTTON COMPLETE
+-- RED GRADIENT CIRCLE DASH BUTTON (LEFT SIDE OF SCREEN)
+local dashBtn = Instance.new("Frame")
+dashBtn.Name = "DashButton_Red"
+dashBtn.Size = UDim2.new(0, 110, 0, 110)
+dashBtn.Position = UDim2.new(0, 20, 0.5, -55)  -- LEFT SIDE
+dashBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+dashBtn.BorderSizePixel = 0
+dashBtn.Parent = gui
+
+-- RED GRADIENT
+local gradientFill = Instance.new("UIGradient")
+gradientFill.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200, 0, 0)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 0, 0))
+})
+gradientFill.Rotation = 45
+gradientFill.Parent = dashBtn
+
+-- CIRCULAR SHAPE
+local dashCorner = Instance.new("UICorner")
+dashCorner.CornerRadius = UDim.new(1, 0)
+dashCorner.Parent = dashBtn
+
+-- DECAL ICON INSIDE
+local iconImg = Instance.new("ImageLabel")
+iconImg.Name = "DashIcon"
+iconImg.Size = UDim2.new(0, 70, 0, 70)
+iconImg.Position = UDim2.new(0.5, -35, 0.5, -35)
+iconImg.BackgroundTransparency = 1
+iconImg.Image = "rbxassetid://110530089410634"
+iconImg.Parent = dashBtn
+
+-- BUTTON FUNCTIONALITY
+local dashBtnButton = Instance.new("TextButton")
+dashBtnButton.Name = "DashButtonClickDetector"
+dashBtnButton.Size = UDim2.new(1, 0, 1, 0)
+dashBtnButton.BackgroundTransparency = 1
+dashBtnButton.BorderSizePixel = 0
+dashBtnButton.Text = ""
+dashBtnButton.Parent = dashBtn
+
+local btnScale = Instance.new("UIScale", dashBtn)
+btnScale.Scale = 1
+
+local pressSnd = Instance.new("Sound")
+pressSnd.Name = "PressSFX"
+pressSnd.SoundId = "rbxassetid://" .. tostring(SOUND_ID)
+pressSnd.Volume = 0.9
+pressSnd.Looped = false
+pressSnd.Parent = dashBtn
+
+-- DUAL TOUCH TRACKING
+local touchActive = false
+local firstTouchPos = nil
+local firstTouchTime = nil
+local DRAG_THRESHOLD = 15
+local DOUBLE_TAP_TIMEOUT = 0.3
+
+local function tweenScale(target, dur)
+	dur = dur or 0.06
+	local success, t = pcall(function()
+		return TweenService:Create(btnScale, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Scale = target,
+		})
+	end)
+	if success and t then
+		t:Play()
+	end
+end
+
+local function tweenColor(target, dur)
+	dur = dur or 0.1
+	local success, t = pcall(function()
+		return TweenService:Create(gradientFill, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Color = target,
+		})
+	end)
+	if success and t then
+		t:Play()
+	end
+end
+
+-- LIGHTER COLOR ON CLICK
+local lighterGradient = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(230, 50, 50)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 0, 0))
+})
+
+local normalGradient = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200, 0, 0)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 0, 0))
+})
+
+dashBtn.InputBegan:Connect(function(inp)
+	if dashButtonLocked then
+		return
+	end
+	
+	if inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseButton1 then
+		if not touchActive then
+			touchActive = true
+			firstTouchPos = inp.Position
+			firstTouchTime = tick()
+			
+			tweenScale(0.92, 0.06)
+			tweenColor(lighterGradient, 0.1)
+			
+			pcall(function()
+				pressSnd:Play()
+			end)
+			
+			inp.Changed:Connect(function()
+				if inp.UserInputState == Enum.UserInputState.End then
+					touchActive = false
+					tweenScale(1, 0.06)
+					tweenColor(normalGradient, 0.1)
+				end
+			end)
+		end
+	end
+end)
+
+dashBtnButton.MouseButton1Click:Connect(function()
+	if dashButtonLocked then
+		return
+	end
+	
+	if not dashing then
+		local t = nil
+		
+		if selectedPlr and selectedPlr.Character and selectedPlr.Character:FindFirstChild("HumanoidRootPart") then
+			t = selectedPlr.Character
+		elseif targetNearOn then
+			t = findTarget(RANGE)
+		else
+			t = findTarget(RANGE)
+		end
+		
+		if t then
+			local success = false
+			pcall(function()
+				success = dash(t)
+			end)
+			
+			if success then
+				pcall(function()
+					pressSnd:Play()
+				end)
+				
+				if m1On then
+					delay(0.15, function()
+						pcall(click)
+					end)
+				end
+				
+				if dashKeyOn then
+					pcall(sendDash)
+				end
+			end
+		end
+	end
+end)
+
+-- DRAG FUNCTIONALITY (ONLY IF NOT LOCKED)
+local draggingBtn = false
+local dragStartBtn = nil
+local btnStartPos = nil
+local dragInputBtn = nil
+
+dashBtn.InputBegan:Connect(function(inp)
+	if dashButtonLocked then
+		return
+	end
+	
+	if (inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseButton1) and not draggingBtn then
+		dragStartBtn = inp.Position
+		btnStartPos = dashBtn.Position
+		dragInputBtn = inp
+	end
+end)
+
+input.InputChanged:Connect(function(inp)
+	if dashButtonLocked or not dragStartBtn or inp ~= dragInputBtn then
+		return
+	end
+	
+	local delta = inp.Position - dragStartBtn
+	if delta.Magnitude >= DRAG_THRESHOLD then
+		draggingBtn = true
+		tweenScale(1, 0.06)
+		
+		local view = game:GetService("Workspace").CurrentCamera.ViewportSize
+		dashBtn.Position = UDim2.new(
+			0, math.clamp(btnStartPos.X.Offset + delta.X, 0, view.X - dashBtn.AbsoluteSize.X),
+			0, math.clamp(btnStartPos.Y.Offset + delta.Y, 0, view.Y - dashBtn.AbsoluteSize.Y)
+		)
+	end
+end)
+
+input.InputEnded:Connect(function(inp)
+	if inp ~= dragInputBtn then
+		return
+	end
+	
+	draggingBtn = false
+	dragStartBtn = nil
+	btnStartPos = nil
+	dragInputBtn = nil
+end)
+
+-- END SNIPPET 2 - RED GRADIENT DASH BUTTON WITH LOCK & 2-TOUCH DETECTION COMPLETE
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -488,7 +739,7 @@ player.CharacterAdded:Connect(function(newChar)
     hum = newChar:WaitForChild("Humanoid")
 end)
 
--- USE HARDCODED SETTINGS FROM SNIPPET 1
+-- USE HARDCODED SETTINGS
 local RANGE = HARDCODED_RANGE
 local studs = HARDCODED_STUDS
 local F_OFFSET = HARDCODED_F_OFFSET
@@ -559,7 +810,6 @@ local function click()
             Mobile = true,
         },
     }
-    
     pcall(function()
         local e = getEvent()
         if e and type(e.FireServer) == "function" then
@@ -617,41 +867,33 @@ local function playAnim(isLeft, dur)
         end
         animTrack = nil
     end)
-    
     local h, a = getHumAndAnim()
     if not h or not a then
         return
     end
-    
     local id = isLeft and ANIM_L or ANIM_R
     if not id then
         return
     end
-    
     local anim = Instance.new("Animation")
     anim.Name = "CircularSideAnim"
     anim.AnimationId = "rbxassetid://" .. tostring(id)
-    
     local success, track = pcall(function()
         return a:LoadAnimation(anim)
     end)
-    
     if not success or not track then
         anim:Destroy()
         return
     end
-    
     animTrack = track
     track.Priority = Enum.AnimationPriority.Action
     track:Play()
-    
     pcall(function()
         if sound and sound.Parent then
             sound:Stop()
             sound:Play()
         end
     end)
-    
     delay((dur or BASE_CD) + 0.15, function()
         if track and track.IsPlaying then
             pcall(function()
@@ -669,11 +911,9 @@ local function findTarget(range)
     if not root then
         return nil, nil
     end
-    
     local myPos = root.Position
     local nearest = nil
     local dist = math.huge
-    
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character then
             local tRoot = plr.Character:FindFirstChild("HumanoidRootPart")
@@ -687,7 +927,6 @@ local function findTarget(range)
             end
         end
     end
-    
     for _, obj in pairs(Workspace:GetDescendants()) do
         if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
             if not Players:GetPlayerFromCharacter(obj) then
@@ -703,12 +942,11 @@ local function findTarget(range)
             end
         end
     end
-    
     return nearest, dist
 end
 
 local function dash(target)
-    -- NEW 2.5 SECOND COOLDOWN CHECK
+    -- 2.5 SECOND COOLDOWN CHECK
     if dashing or (tick() - lastDashTime) < DASH_COOLDOWN then
         return false
     end
@@ -868,7 +1106,7 @@ local function dash(target)
     return true
 end
 
--- END SNIPPET 2 - DASH LOGIC & COOLDOWN COMPLETE
+-- E KEYBIND FOR DASH
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed then
         return
@@ -878,7 +1116,6 @@ UserInputService.InputBegan:Connect(function(input, processed)
         return
     end
     
-    -- CHANGED KEYBIND TO E (was X before)
     local isDash = (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.E) or
                       (input.UserInputType == Enum.UserInputType.Gamepad1 and input.KeyCode == Enum.KeyCode.DPadUp)
     
@@ -914,144 +1151,6 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
--- DASH BUTTON ON-SCREEN FUNCTIONALITY
-local dashBtn = Instance.new("ImageButton")
-dashBtn.Name = "DashButton_Merged"
-dashBtn.Size = UDim2.new(0, 110, 0, 110)
-dashBtn.Position = UDim2.new(1, -130, 0.8, -55) -- RIGHT SIDE AS PER YOUR REQUEST
-dashBtn.BackgroundTransparency = 1
-dashBtn.BorderSizePixel = 0
-dashBtn.Image = "rbxassetid://99317918824094"
-dashBtn.Parent = gui
-dashBtn.Active = true
-
-local btnScale = Instance.new("UIScale", dashBtn)
-btnScale.Scale = 1
-
-local pressSnd = Instance.new("Sound")
-pressSnd.Name = "PressSFX"
-pressSnd.SoundId = "rbxassetid://" .. tostring(SOUND_ID)
-pressSnd.Volume = 0.9
-pressSnd.Looped = false
-pressSnd.Parent = dashBtn
-
-local pressed = false
-local dragging = false
-local dragStart = nil
-local btnStart = nil
-local dragIn = nil
-local DRAG_THRESH = 8
-
-local function tweenScale(target, dur)
-    dur = dur or 0.06
-    local success, t = pcall(function()
-        return TweenService:Create(btnScale, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Scale = target,
-        })
-    end)
-    if success and t then
-        t:Play()
-    end
-end
-
-local function onInputStart(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        pressed = true
-        dragging = false
-        dragStart = input.Position
-        btnStart = dashBtn.Position
-        dragIn = input
-        
-        tweenScale(0.92, 0.06)
-        
-        pcall(function()
-            pressSnd:Play()
-        end)
-    end
-end
-
-local function onInputChange(input)
-    if not pressed or not dragStart or input ~= dragIn then
-        return
-    end
-    
-    local delta = input.Position - dragStart
-    
-    if not dragging and delta.Magnitude >= DRAG_THRESH then
-        dragging = true
-        tweenScale(1, 0.06)
-    end
-    
-    if dragging then
-        local view = Workspace.CurrentCamera.ViewportSize
-        dashBtn.Position = UDim2.new(
-            0, math.clamp(btnStart.X.Offset + delta.X, 0, view.X - dashBtn.AbsoluteSize.X),
-            0, math.clamp(btnStart.Y.Offset + delta.Y, 0, view.Y - dashBtn.AbsoluteSize.Y)
-        )
-    end
-end
-
-UserInputService.InputChanged:Connect(function(input)
-    pcall(function()
-        onInputChange(input)
-    end)
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input ~= dragIn or not pressed then
-        return
-    end
-    
-    if not dragging and not dashing then
-        local t = nil
-        
-        if selectedPlr and selectedPlr.Character and selectedPlr.Character:FindFirstChild("HumanoidRootPart") then
-            t = selectedPlr.Character
-        elseif targetNearOn then
-            t = findTarget(RANGE)
-        else
-            t = findTarget(RANGE)
-        end
-        
-        if t then
-            local success = false
-            pcall(function()
-                success = dash(t)
-            end)
-            
-            if success then
-                pcall(function()
-                    pressSnd:Play()
-                end)
-                
-                if m1On then
-                    delay(0.15, function()
-                        pcall(click)
-                    end)
-                end
-                
-                if dashKeyOn then
-                    pcall(sendDash)
-                end
-            end
-        end
-    end
-    
-    tweenScale(1, 0.06)
-    
-    pressed = false
-    dragging = false
-    dragIn = nil
-    btnStart = nil
-    dragStart = nil
-end)
-
-dashBtn.InputBegan:Connect(function(input)
-    pcall(function()
-        onInputStart(input)
-    end)
-end)
-
 Players.PlayerAdded:Connect(refreshList)
 Players.PlayerRemoving:Connect(refreshList)
 
@@ -1074,5 +1173,5 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("[COMPLETE] Side Dash Assist V1 loaded - Hardcoded settings, 2.5s cooldown, E keybind ready!")
--- END SNIPPET 3 - ALL INPUT HANDLING COMPLETE
+print("[COMPLETE] Side Dash Assist V1 - Red Button, Lock Feature, 2-Touch Detection, 2.5s Cooldown, E Keybind Ready!")
+-- END SNIPPET 3 - ALL CORE DASH & INPUT HANDLING COMPLETE
