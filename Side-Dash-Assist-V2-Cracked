@@ -505,8 +505,8 @@ end
 
 local sound = Instance.new("Sound")
 sound.Name = "DashSFX"
-sound.SoundId = "rbxassetid://72014632956520"
-sound.Volume = 2
+sound.SoundId = ""
+sound.Volume = 0
 sound.Looped = false
 sound.Parent = Workspace
 
@@ -962,3 +962,4 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		doDashFromButton()
 	end
 end)
+
