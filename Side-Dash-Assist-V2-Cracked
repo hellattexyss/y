@@ -16,7 +16,7 @@ player.CharacterAdded:Connect(function(newChar)
 	hum = newChar:WaitForChild("Humanoid")
 end)
 
--- HARDCODED SETTINGS (no sliders, just values)
+-- HARDCODED SETTINGS
 local RANGE = 30
 local studs = 8
 local F_OFFSET = 3
@@ -86,7 +86,6 @@ local function makeDraggable(guiObject, canLock)
 	
 	guiObject.InputBegan:Connect(function(inp)
 		if (inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseButton1) and not dragging then
-			-- If locked and this object should respect lock, don't drag
 			if canLock and dashButtonLocked then
 				return
 			end
@@ -111,7 +110,7 @@ local function makeDraggable(guiObject, canLock)
 	end)
 end
 
--- MAIN FRAME (old layout, NO toggles here)
+-- MAIN FRAME
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 380, 0, 140)
@@ -121,7 +120,7 @@ mainFrame.BackgroundTransparency = 1
 mainFrame.BorderSizePixel = 0
 mainFrame.Visible = false
 mainFrame.Parent = gui
-makeDraggable(mainFrame, true) -- can lock
+makeDraggable(mainFrame, true)
 
 local mainCorner = Instance.new("UICorner", mainFrame)
 mainCorner.CornerRadius = UDim.new(0, 20)
@@ -230,7 +229,7 @@ minimizeBtn.Parent = mainFrame
 local minimizeCorner = Instance.new("UICorner", minimizeBtn)
 minimizeCorner.CornerRadius = UDim.new(0, 10)
 
--- SETTINGS BUTTON (bottom left)
+-- SETTINGS BUTTON
 local settingsBtn = Instance.new("TextButton")
 settingsBtn.Size = UDim2.new(0, 36, 0, 36)
 settingsBtn.Position = UDim2.new(0, 10, 1, -46)
@@ -245,7 +244,7 @@ settingsBtn.Parent = mainFrame
 local settingsBtnCorner = Instance.new("UICorner", settingsBtn)
 settingsBtnCorner.CornerRadius = UDim.new(1, 0)
 
--- SETTINGS OVERLAY (your old one with COMING SOON + KEYBINDS)
+-- SETTINGS OVERLAY
 local settingsOverlay = Instance.new("Frame")
 settingsOverlay.Name = "SettingsOverlay"
 settingsOverlay.Size = UDim2.new(0, 300, 0, 240)
@@ -255,7 +254,7 @@ settingsOverlay.BackgroundTransparency = 1
 settingsOverlay.BorderSizePixel = 0
 settingsOverlay.Visible = false
 settingsOverlay.Parent = gui
-makeDraggable(settingsOverlay, false) -- doesn't lock
+makeDraggable(settingsOverlay, false)
 
 local overlayCorner = Instance.new("UICorner", settingsOverlay)
 overlayCorner.CornerRadius = UDim.new(0, 19)
@@ -348,7 +347,7 @@ keyInfo2.Font = Enum.Font.Gotham
 keyInfo2.TextXAlignment = Enum.TextXAlignment.Left
 keyInfo2.Parent = keybindFrame
 
--- OPEN GUI BUTTON (clickable even when locked, but not draggable when locked)
+-- OPEN GUI BUTTON
 local openButton = Instance.new("TextButton")
 openButton.Name = "OpenGuiButton"
 openButton.Size = UDim2.new(0, 90, 0, 34)
@@ -363,9 +362,9 @@ openButton.Visible = false
 openButton.Parent = gui
 local openCorner = Instance.new("UICorner", openButton)
 openCorner.CornerRadius = UDim.new(0, 10)
-makeDraggable(openButton, true) -- can lock
+makeDraggable(openButton, true)
 
--- LOCK BUTTON (clickable even when locked, but not draggable when locked)
+-- LOCK BUTTON
 local lockButton = Instance.new("TextButton")
 lockButton.Name = "LockButton"
 lockButton.Size = UDim2.new(0, 90, 0, 34)
@@ -380,7 +379,7 @@ lockButton.Visible = false
 lockButton.Parent = gui
 local lockCorner = Instance.new("UICorner", lockButton)
 lockCorner.CornerRadius = UDim.new(0, 10)
-makeDraggable(lockButton, true) -- can lock
+makeDraggable(lockButton, true)
 
 local function notify(text)
 	pcall(function()
@@ -503,13 +502,6 @@ local function click()
 	end)
 end
 
-local sound = Instance.new("Sound")
-sound.Name = "DashSFX"
-sound.SoundId = ""
-sound.Volume = 0
-sound.Looped = false
-sound.Parent = Workspace
-
 local function angleDiff(a, b)
 	local diff = a - b
 	while math.pi < diff do
@@ -577,13 +569,6 @@ local function playAnim(isLeft, dur)
 	animTrack = track
 	track.Priority = Enum.AnimationPriority.Action
 	track:Play()
-
-	pcall(function()
-		if sound and sound.Parent then
-			sound:Stop()
-			sound:Play()
-		end
-	end)
 
 	task.delay((dur or BASE_CD) + 0.15, function()
 		if track and track.IsPlaying then
@@ -790,14 +775,9 @@ local function dash(target)
 
 	return true
 end
---// DASH BUTTON - RIGHT SIDE, BIG WHITE ICON
+--// DASH BUTTON - RIGHT SIDE, NO TELEPORT, NO SFX
 
-local clickSnd = Instance.new("Sound")
-clickSnd.SoundId = "rbxassetid://6042053626"
-clickSnd.Volume = 0.7
-clickSnd.Parent = gui
-
--- RED CIRCULAR DASH BUTTON - RIGHT SIDE OF SCREEN
+-- RED CIRCULAR DASH BUTTON - RIGHT SIDE OF SCREEN (NO TP ON TOUCH)
 local dashBtn = Instance.new("ImageButton")
 dashBtn.Name = "DashButton_Final"
 dashBtn.Size = UDim2.new(0, 110, 0, 110)
@@ -829,12 +809,7 @@ bigIcon.Position = UDim2.new(0.5, -47.5, 0.5, -47.5)
 bigIcon.Image = "rbxassetid://12443244342"
 bigIcon.Parent = dashBtn
 
-local pressSnd = Instance.new("Sound")
-pressSnd.Name = "PressSFX"
-pressSnd.SoundId = "rbxassetid://" .. tostring(SOUND_ID)
-pressSnd.Volume = 0.9
-pressSnd.Looped = false
-pressSnd.Parent = dashBtn
+-- NO SOUND - REMOVED PRESSSND
 
 local pressed = false
 local dragging = false
@@ -861,9 +836,7 @@ local function doDashFromButton()
 			success = dash(t)
 		end)
 		if success then
-			pcall(function()
-				pressSnd:Play()
-			end)
+			-- NO SFX
 			if m1On then
 				task.delay(0.15, function()
 					pcall(click)
@@ -876,90 +849,57 @@ local function doDashFromButton()
 	end
 end
 
-local function onInputStart(input)
-	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-		pressed = true
-		dragging = false
-		dragStart = input.Position
-		btnStart = dashBtn.Position
-		dragIn = input
-
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				pressed = false
-				dragIn = nil
-				dragStart = nil
-				btnStart = nil
-			end
-		end)
-	end
-end
-
-local function onInputChange(input)
-	if not pressed or not dragStart or input ~= dragIn then
-		return
-	end
-
-	local delta = input.Position - dragStart
-	if not dragging and delta.Magnitude >= DRAG_THRESH then
-		if dashButtonLocked then return end
-		dragging = true
-	end
-
-	if dragging and not dashButtonLocked then
-		local view = Workspace.CurrentCamera.ViewportSize
-		dashBtn.Position = UDim2.new(
-			0,
-			math.clamp(btnStart.X.Offset + delta.X, 0, view.X - dashBtn.AbsoluteSize.X),
-			0,
-			math.clamp(btnStart.Y.Offset + delta.Y, 0, view.Y - dashBtn.AbsoluteSize.Y)
-		)
-	end
-end
-
-UserInputService.InputChanged:Connect(function(input)
-	pcall(function()
-		onInputChange(input)
-	end)
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-	if input ~= dragIn or not pressed then
-		return
-	end
-
+-- ONLY respond to direct clicks, not InputBegan drag tracking
+dashBtn.MouseButton1Click:Connect(function()
 	if not dragging then
 		doDashFromButton()
 	end
-
-	pressed = false
-	dragging = false
-	dragIn = nil
-	btnStart = nil
-	dragStart = nil
 end)
 
-dashBtn.InputBegan:Connect(function(input)
-	pcall(function()
-		onInputStart(input)
-	end)
-end)
+-- Separate touch handling ONLY for checking drag
+local touchActive = false
+local touchStart = nil
 
-dashBtn.MouseButton1Click:Connect(function()
-	doDashFromButton()
-end)
-
--- E KEY & GAMEPAD
 UserInputService.InputBegan:Connect(function(input, processed)
-	if processed or dashing or not EnabledFlag then
-		return
+	if processed then return end
+	
+	if input.UserInputType == Enum.UserInputType.Touch then
+		touchActive = true
+		touchStart = input.Position
 	end
-
-	local isDash = (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.E)
-		or (input.UserInputType == Enum.UserInputType.Gamepad1 and input.KeyCode == Enum.KeyCode.DPadUp)
-
-	if isDash then
-		doDashFromButton()
+	
+	-- E KEY & GAMEPAD
+	if not processed and not dashing and EnabledFlag then
+		local isDash = (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.E)
+			or (input.UserInputType == Enum.UserInputType.Gamepad1 and input.KeyCode == Enum.KeyCode.DPadUp)
+		if isDash then
+			doDashFromButton()
+		end
 	end
 end)
 
+UserInputService.InputEnded:Connect(function(input, processed)
+	if input.UserInputType == Enum.UserInputType.Touch then
+		touchActive = false
+		touchStart = nil
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input, processed)
+	if touchActive and touchStart and input.UserInputType == Enum.UserInputType.Touch then
+		local delta = (input.Position - touchStart).Magnitude
+		if delta >= DRAG_THRESH then
+			if not dashButtonLocked then
+				dragging = true
+				local btnAbsSize = dashBtn.AbsoluteSize
+				local view = Workspace.CurrentCamera.ViewportSize
+				dashBtn.Position = UDim2.new(
+					0,
+					math.clamp(input.Position.X - btnAbsSize.X / 2, 0, view.X - btnAbsSize.X),
+					0,
+					math.clamp(input.Position.Y - btnAbsSize.Y / 2, 0, view.Y - btnAbsSize.Y)
+				)
+			end
+		end
+	end
+end)
