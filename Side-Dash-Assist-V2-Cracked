@@ -58,6 +58,14 @@ pcall(function()
 end)
 
 pcall(function()
+	StarterGui:SetCore("SendNotification", {
+		Title = "Keybinds Info";
+		Text = "Side Dash Keybind: E";
+		Duration = 5;
+	})
+end)
+
+pcall(function()
 	if setclipboard then
 		setclipboard("https://discord.gg/GEVGRzC4ZP")
 	end
@@ -237,10 +245,10 @@ settingsBtn.Parent = mainFrame
 local settingsBtnCorner = Instance.new("UICorner", settingsBtn)
 settingsBtnCorner.CornerRadius = UDim.new(1, 0)
 
--- SETTINGS OVERLAY (your old one with COMING SOON)
+-- SETTINGS OVERLAY (your old one with COMING SOON + KEYBINDS)
 local settingsOverlay = Instance.new("Frame")
 settingsOverlay.Name = "SettingsOverlay"
-settingsOverlay.Size = UDim2.new(0, 300, 0, 190)
+settingsOverlay.Size = UDim2.new(0, 300, 0, 240)
 settingsOverlay.Position = UDim2.new(0, 40, 0.2, 0)
 settingsOverlay.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 settingsOverlay.BackgroundTransparency = 1
@@ -286,15 +294,59 @@ local settingsCloseCorner = Instance.new("UICorner", settingsCloseBtn)
 settingsCloseCorner.CornerRadius = UDim.new(0, 10)
 
 local comingSoon = Instance.new("TextLabel")
-comingSoon.Size = UDim2.new(1, 0, 0, 100)
-comingSoon.Position = UDim2.new(0, 0, 0.5, -50)
+comingSoon.Size = UDim2.new(1, 0, 0, 50)
+comingSoon.Position = UDim2.new(0, 0, 0, 50)
 comingSoon.BackgroundTransparency = 1
 comingSoon.Text = "COMING SOON!..."
 comingSoon.TextColor3 = Color3.fromRGB(255, 60, 60)
-comingSoon.TextSize = 26
+comingSoon.TextSize = 24
 comingSoon.Font = Enum.Font.GothamBold
 comingSoon.TextXAlignment = Enum.TextXAlignment.Center
 comingSoon.Parent = settingsOverlay
+
+-- KEYBINDS INFO FRAME
+local keybindFrame = Instance.new("Frame")
+keybindFrame.Size = UDim2.new(1, -32, 0, 110)
+keybindFrame.Position = UDim2.new(0, 16, 0, 110)
+keybindFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+keybindFrame.BorderSizePixel = 0
+keybindFrame.Parent = settingsOverlay
+
+local keybindCorner = Instance.new("UICorner", keybindFrame)
+keybindCorner.CornerRadius = UDim.new(0, 14)
+
+local keyTitle = Instance.new("TextLabel")
+keyTitle.Size = UDim2.new(1, -20, 0, 30)
+keyTitle.Position = UDim2.new(0, 10, 0, 8)
+keyTitle.BackgroundTransparency = 1
+keyTitle.Text = "Keybind Info"
+keyTitle.TextColor3 = Color3.fromRGB(230, 230, 230)
+keyTitle.TextSize = 18
+keyTitle.Font = Enum.Font.GothamBold
+keyTitle.TextXAlignment = Enum.TextXAlignment.Left
+keyTitle.Parent = keybindFrame
+
+local keyInfo1 = Instance.new("TextLabel")
+keyInfo1.Size = UDim2.new(1, -20, 0, 24)
+keyInfo1.Position = UDim2.new(0, 10, 0, 40)
+keyInfo1.BackgroundTransparency = 1
+keyInfo1.Text = "PC Keybind: E"
+keyInfo1.TextColor3 = Color3.fromRGB(205, 205, 205)
+keyInfo1.TextSize = 15
+keyInfo1.Font = Enum.Font.Gotham
+keyInfo1.TextXAlignment = Enum.TextXAlignment.Left
+keyInfo1.Parent = keybindFrame
+
+local keyInfo2 = Instance.new("TextLabel")
+keyInfo2.Size = UDim2.new(1, -20, 0, 24)
+keyInfo2.Position = UDim2.new(0, 10, 0, 65)
+keyInfo2.BackgroundTransparency = 1
+keyInfo2.Text = "Gamepad: DPad Up"
+keyInfo2.TextColor3 = Color3.fromRGB(205, 205, 205)
+keyInfo2.TextSize = 15
+keyInfo2.Font = Enum.Font.Gotham
+keyInfo2.TextXAlignment = Enum.TextXAlignment.Left
+keyInfo2.Parent = keybindFrame
 
 -- OPEN GUI BUTTON (clickable even when locked, but not draggable when locked)
 local openButton = Instance.new("TextButton")
@@ -397,6 +449,8 @@ mainFrame.Visible = true
 TweenService:Create(blur, TweenInfo.new(0.3), {Size = 12}):Play()
 TweenService:Create(mainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
 TweenService:Create(borderFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
+
+print("sub to waspire")
 --// DASH LOGIC
 
 local function getEvent()
@@ -451,8 +505,8 @@ end
 
 local sound = Instance.new("Sound")
 sound.Name = "DashSFX"
-sound.SoundId = ""
-sound.Volume = 0
+sound.SoundId = "rbxassetid://72014632956520"
+sound.Volume = 2
 sound.Looped = false
 sound.Parent = Workspace
 
@@ -736,18 +790,18 @@ local function dash(target)
 
 	return true
 end
---// DASH BUTTON - BIG WHITE ICON ASSET 12443244342
+--// DASH BUTTON - RIGHT SIDE, BIG WHITE ICON
 
 local clickSnd = Instance.new("Sound")
-clickSnd.SoundId = ""
+clickSnd.SoundId = "rbxassetid://6042053626"
 clickSnd.Volume = 0.7
 clickSnd.Parent = gui
 
--- RED CIRCULAR DASH BUTTON
+-- RED CIRCULAR DASH BUTTON - RIGHT SIDE OF SCREEN
 local dashBtn = Instance.new("ImageButton")
 dashBtn.Name = "DashButton_Final"
 dashBtn.Size = UDim2.new(0, 110, 0, 110)
-dashBtn.Position = UDim2.new(0, 15, 0.5, -55)
+dashBtn.Position = UDim2.new(1, -125, 0.5, -55) -- RIGHT SIDE
 dashBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 dashBtn.BorderSizePixel = 0
 dashBtn.BackgroundTransparency = 0
@@ -908,6 +962,3 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		doDashFromButton()
 	end
 end)
-
-
-
